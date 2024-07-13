@@ -8,10 +8,4 @@ set(SOURCES
 
 set(HEADERS)
 
-add_subdirectory(datapacket)
-
 add_executable(${PROJECT_NAME} ${HEADERS} ${SOURCES})
-
-target_link_libraries(${PROJECT_NAME} 
-    datapacket
-)
