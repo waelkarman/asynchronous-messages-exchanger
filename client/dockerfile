@@ -11,4 +11,4 @@ COPY . /app
 
 RUN cmake . && make
 
-ENTRYPOINT ["./client-udp"]
+ENTRYPOINT ["./client/client-udp"]

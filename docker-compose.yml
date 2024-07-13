@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: ./server/dockerfile
+    network_mode: host
+
+  client:
+    build:
+      context: .
+      dockerfile: ./client/dockerfile
+    network_mode: host
