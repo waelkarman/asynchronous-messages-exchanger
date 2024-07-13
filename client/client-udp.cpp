@@ -5,7 +5,7 @@ using namespace std;
 
 int main(){
 
-    cout << "HELLO SERVER" << endl;   
+    cout << "HELLO CLIENT" << endl;   
 
     return 0;
 }
