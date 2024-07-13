@@ -5,3 +5,4 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_subdirectory(client)
 add_subdirectory(server)
+add_subdirectory(libs)
