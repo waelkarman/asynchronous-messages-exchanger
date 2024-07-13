@@ -16,21 +16,7 @@ private:
 public:
     datapacket();
 
-    string pack(MessageType mp,const int& seq, const string& data){
-        stringstream ss;
-        ss << mp << ":" << seq << ":" << data;
-        return ss.str();
-    }
+    string pack(MessageType mp,const int& seq, const string& data);
 
-    std::vector<std::string> unpack(const string& s){
-        std::vector<std::string> tokens;
-        std::string token;
-        std::stringstream ss(s);
-
-        while (std::getline(ss, token, delimiter)) {
-            tokens.push_back(token);
-        }
-
-        return tokens;
-    }
+    vector<string> unpack(const string& s);
 };
