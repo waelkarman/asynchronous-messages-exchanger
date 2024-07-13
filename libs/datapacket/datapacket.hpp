@@ -8,42 +8,29 @@
 using namespace std;
 
 class datapacket{
+private:
+    int seq;
+    string data;
+    char delimiter = ':';
 
 public:
     datapacket();
 
-    string pack(MessageType mp,int seq, string data){
+    string pack(MessageType mp,const int& seq, const string& data){
         stringstream ss;
         ss << mp << ":" << seq << ":" << data;
         return ss.str();
     }
 
-    std::vector<std::string> unpack(string s){
+    std::vector<std::string> unpack(const string& s){
         std::vector<std::string> tokens;
         std::string token;
         std::stringstream ss(s);
 
-        while (std::getline(ss, token, ':')) {
+        while (std::getline(ss, token, delimiter)) {
             tokens.push_back(token);
         }
 
         return tokens;
     }
-
-private:
-    int seq;
-    string data;
-    string delimiter = ":";
 };
-
-
-// int main(){
-
-//     datapacket d;
-
-//     string s = d.pack(5,"ciao");
-    
-//     std::vector<std::string> v = d.unpack(s);
-//     cout << v[0] << " " << v[1];
-
-// }
