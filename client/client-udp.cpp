@@ -8,8 +8,8 @@
 
 #include <datapacket.hpp>
 #include <utils.hpp>
-#include <timer.hpp>
-#include <queue>
+#include "safequeue.hpp"
+#include "safemap.hpp"
 #include <map>
 #include <thread>
 
@@ -49,28 +49,36 @@ public:
         return 0;
     }
 
-    void add_to_message_queue(string data, int n = 0){
+    void add_to_message_queue(string data, size_t n = 0){
         if(n==0){
-            message_queue[available]=data;
+            message_queue.insert(available,data);
             query.push(available);
             available++;
         }else{
-            message_queue[n]=data;
+            message_queue.insert(n,data);
             query.push(n);
         }
     }
 
     void main_loop(){
         
-        std::function<void()> task0 = [this](){
+        std::function<void()> task0 = [this]() {
+            this->message_handler_loop();
+        };
+        std::function<void()> task1 = [this](){
             this->fetch_and_send_loop(this->milliseconds);
         };
-        std::function<void()> task1 = [this]() {
+        std::function<void()> task2 = [this]() {
             this->acknoledge_handling_loop();
+        };
+        std::function<void()> task3 = [this]() {
+            this->received_message_loop();
         };
 
         tasks.push_back(std::move(task0));
         tasks.push_back(std::move(task1));
+        tasks.push_back(std::move(task2));
+        tasks.push_back(std::move(task3));
 
         while(tasks.size()>0){
             workers.push_back(thread([this](vector<std::function<void()>> & tasks){this->th_lodable(tasks);},std::ref(tasks)));
@@ -98,48 +106,71 @@ private:
     char buffer[BUFFER_SIZE];
     string message = "Hello, Server";
     socklen_t addr_len = sizeof(server_addr);
+
     bool missing;
     bool stop_condition;
     int broken_pipe;
     size_t key;
     size_t available;
     size_t key_stored;
-    std::queue<size_t> query;
-    std::queue<size_t> saved;
-    std::map<int,string> message_queue;
+    TSQueue<size_t> query;
+    TSQueue<size_t> saved;
+    TSQueue<size_t> ack_queue;
+    TSQueue<string> recv_queue;
+    TSMap<size_t,string> message_queue;
     std::mutex mtx;
     vector<thread> workers;
     vector<std::function<void()>> tasks;
     int milliseconds;
-    MessageType TYPE = MSG;
+    MessageType TYPE_MSG = MSG;
+    MessageType TYPE_ACK = ACK;
+    datapacket dp;
 
-    void printQueue(const std::queue<size_t>& q) {
-        std::queue<size_t> tempQueue = q;
-        std::cout << "Message Queue content: ";
-        while (!tempQueue.empty()) {
-            std::cout << tempQueue.front() << " ";
-            tempQueue.pop();
+    void message_handler_loop(){
+        while(true){
+            int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
+            cout << "Ricevuto messaggio da " << inet_ntoa(server_addr.sin_addr) << ":" << ntohs(server_addr.sin_port) << endl;
+            if (n < 0) {
+                std::cerr << " Errore nella ricezione dei dati" << std::endl;
+                close(sockfd);
+                //return 1;
+            }
+            buffer[n] = '\0';
+            string s(buffer);
+            vector<string> pack = dp.unpack(s);
+
+            switch (stoi(pack[0])) {
+                case MSG:
+                    cout<<"il messaggio è un MSG"<<endl;
+                    recv_queue.push(s);
+                    break;
+                case ACK:
+                    cout<<"il messaggio è un ACK"<<endl;
+                    ack_queue.push(static_cast<size_t>(std::stoul(pack[1])));
+                    break;
+                default:
+                    cout<<"messaggio non categorizzato"<<endl;
+            }
         }
-        std::cout << std::endl;
     }
 
     void fetch_and_send_loop(int milliseconds){
         while(!stop_condition){
             // message fetching
-            datapacket dp;
             string pack;
             
             if(!query.empty()){
-                printQueue(query);
+                //printQueue(query);
+                query.printQueue();
                 key = query.front();
                 cout << "send: invio valore estratto " << key << endl;
                 // Comment next line to test already received data. 
                 query.pop();
-                message = message_queue[key];
-                pack = dp.pack(TYPE,key,message);
+                message = message_queue.get(key);
+                pack = dp.pack(TYPE_MSG,key,message);
             }else{
                 cout << "send: invio valore di default -1" << endl;
-                pack = dp.pack(TYPE,-1,"MESSAGE_QUEUE EMPTY");
+                pack = dp.pack(TYPE_MSG,-1,"ALIVE");
             }
             
             // send data
@@ -156,61 +187,69 @@ private:
 
     void acknoledge_handling_loop(){
         while(!stop_condition){
-            // get answer from the server
 
-            int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
-            if (n < 0) {
-                std::cerr << "received: Errore nella ricezione dei dati" << std::endl;
-                close(sockfd);
-                //return 1;
-            }
-            buffer[n] = '\0';
-            string s(buffer);
-            size_t key_received = static_cast<size_t>(std::stoul(s));
-            
-            if( key_received >= key_stored){
-                if( (key_received-key_stored) > 0 && message_queue.find(key_stored) != message_queue.end()){
-                    cout << "received: chiedo il rinvio di "<< key_stored << endl;
+            if(!ack_queue.empty()){
+                size_t key_received = ack_queue.front();
+                ack_queue.pop();
+                
+                if( key_received >= key_stored){
+                    if( (key_received-key_stored) > 0 && message_queue.find(key_stored)){
+                        cout << "chiedo il rinvio di "<< key_stored << endl;
 
-                    query.push(key_stored);
-                    cout << "received: salvo il valore fra i ricevuti non processati "<< key_stored << endl;
-                    saved.push(key_received); 
-                }else if(message_queue.find(key_stored) != message_queue.end()){
-                    cout << "received: ricevo "<< key_stored <<  " e cancello i dati associati " << endl;
-                    message_queue.erase(key_stored);
+                        query.push(key_stored);
+                        cout << "salvo il valore fra i ricevuti non processati "<< key_stored << endl;
+                        saved.push(key_received); 
+                    }else if(message_queue.find(key_stored)){
+                        cout << "ack "<< key_stored <<  " ricevuto, cancello i dati associati " << endl;
+                        message_queue.erase(key_stored);
+                        
+                        while(!saved.empty() && !missing){
+                            cout << "Vedi se la lista dei non processati contiene qualcosa" << endl;
+                            if(saved.front() == key_stored+1){
+                                cout << "RECUPERO il mancante dalla lista" << endl;
+                                message_queue.erase(key_stored);
+                                saved.pop();
+                                key_stored++;
+                            }else{
+                                cout << "mi fermo a recuperare perche manca "<< key_stored << endl;
+                                query.push(key_stored);
+                                missing=true;
+                            }
+                        }
+                        key_stored++;
+                        missing=false;
+                    }
                     
-                    while(!saved.empty() && !missing){
-                        cout << "received: Vedi se la lista dei non processati contiene qualcosa" << endl;
-                        if(saved.front() == key_stored+1){
-                            cout << "received: RECUPERO il mancante dalla lista" << endl;
-                            message_queue.erase(key_stored);
-                            saved.pop();
-                            key_stored++;
-                        }else{
-                            cout << "received: mi fermo a recuperare perche manca "<< key_stored << endl;
-                            query.push(key_stored);
-                            missing=true;
+                    //std::cout << "Dati inviati al server: " << buffer << std::endl;
+
+                    if(!message_queue.find(key_stored) && !message_queue.empty()){
+                        cout << "IMPOSSIBILE RECUPERARE I DATI PER IL NUMERO DI SEQUENZA "<< key_stored << endl; 
+                        broken_pipe++;
+                        if(broken_pipe>2){
+                            cout << "fatal error: broken pipe. Transmission failure." << endl;
+                            stop_condition=true;
                         }
                     }
-                    key_stored++;
-                    missing=false;
+                    
+                }else{
+                    cout<< " DATI ASSICIATO A "<< key_stored << " GIA RICEVUTI"<<endl;
                 }
-                
-                std::cout << "received: Dati inviati al server: " << buffer << std::endl;
 
-                if(message_queue.find(key_stored) == message_queue.end() && !message_queue.empty()){
-                    cout << "received: IMPOSSIBILE RECUPERARE I DATI PER IL NUMERO DI SEQUENZA "<< key_stored << endl; 
-                    broken_pipe++;
-                    if(broken_pipe>2){
-                        cout << "fatal error: broken pipe. Transmission failure." << endl;
-                        stop_condition=true;
-                    }
-                }
-                
-            }else{
-                cout<< "received: DATI ASSICIATO A "<< key_stored << " GIA RICEVUTI"<<endl;
             }
+        }
+    }
 
+    void received_message_loop(){
+        while (true) {
+            if(!recv_queue.empty()){
+                vector<string> content = dp.unpack(recv_queue.front());
+                recv_queue.pop();
+
+                std::cout << "ricevuto  " << content[2] << " invio ack: "<< content[1] << endl; 
+                
+                string pack = dp.pack(TYPE_ACK,stoi(content[1]),"ACK_MESSAGE");
+                sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);            
+            }
         }
     }
 
@@ -231,6 +270,16 @@ private:
         }
     }
 
+    void printQueue(const std::queue<size_t>& q) {
+        std::queue<size_t> tempQueue = q;
+        std::cout << "Message Queue content: ";
+        while (!tempQueue.empty()) {
+            std::cout << tempQueue.front() << " ";
+            tempQueue.pop();
+        }
+        std::cout << std::endl;
+    }
+
 };
 
 
@@ -238,14 +287,14 @@ private:
 int main() {
 
     Sender s;
-    s.add_to_message_queue("CIAO",0);
-    s.add_to_message_queue("SERVUS",1);
-    s.add_to_message_queue("HI",2);
+    s.add_to_message_queue("CIAO");
     s.initialize();
     s.main_loop();
-    s.add_to_message_queue("HALLO",3);
-    s.add_to_message_queue("LIHAO",4);
-    s.add_to_message_queue("HELLO",5);
+    s.add_to_message_queue("HI");
+    s.add_to_message_queue("SERVUS");
+    s.add_to_message_queue("HALLO");
+    s.add_to_message_queue("LIHAO");
+    s.add_to_message_queue("HELLO");
 
 
     return 0;
