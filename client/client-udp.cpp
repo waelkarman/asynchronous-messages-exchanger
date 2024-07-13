@@ -6,8 +6,10 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#include "datapacket.hpp"
+#include <datapacket.hpp>
+#include <timer.hpp>
 #include <queue>
+#include <map>
 #include <thread>
 
 #define PORT 12345
@@ -28,9 +30,7 @@ std::mutex task_queue_mutex;
 class Sender{
 
 public:
-    Sender():seq(0){
-
-    }
+    Sender():key(0),available(0),received(0),milliseconds(1000),missing(false){}
 
     int initialize(){
         // Creazione del socket UDP
@@ -48,18 +48,19 @@ public:
     }
 
     void send_data(string data){
-        to_send.push(data);
+        to_send[available]=data;
+        q.push(available);
+        available++;
     }
 
     void main_loop(){
         
         std::function<void()> task0 = [this](){
-            this->send_loop();
+            this->fetch_and_send_loop(this->milliseconds);
         };
         std::function<void()> task1 = [this]() {
             this->receive_loop();
         };
-
 
         tasks.push_back(std::move(task0));
         tasks.push_back(std::move(task1));
@@ -72,10 +73,10 @@ public:
 
     int deinitialize(){
         for(thread& w : workers){
-        if(w.joinable()){
-            w.join();
+            if(w.joinable()){
+                w.join();
+            }
         }
-    }
         close(sockfd);
         return 0;
     }
@@ -91,26 +92,40 @@ private:
     char buffer[BUFFER_SIZE];
     string message = "Hello, Server";
     socklen_t addr_len = sizeof(server_addr);
-    size_t seq;
-    std::queue<string> to_send;
+    bool missing;
+    size_t key;
+    size_t available;
+    size_t received;
+    std::queue<size_t> q;
+    std::queue<size_t> saved;
+    std::map<int,string> to_send;
     std::mutex mtx;
     vector<thread> workers;
     vector<std::function<void()>> tasks;
+    int milliseconds;
 
-    void send_loop(){
+    void fetch_and_send_loop(int milliseconds){
         while(true){
             // message fetching
             datapacket dp;
             string pack;
             
-            if(!to_send.empty()){
-                message = to_send.front();
-                to_send.pop();
-                pack = dp.pack(seq,message);
+            if(!q.empty()){
+                key = q.front();
+                q.pop();
+
+                /**
+                 * leggo da una coda e invio
+                 * qualcuno riempie la coda e mi dice cosa inviare di nuovo
+                 * quello che invio lo metto in waiting list.
+                 * 
+                 */
+
+                message = to_send[key];
+                pack = dp.pack(key,message);
             }else{
-                pack = dp.pack(seq,"NO MESSAGES");
+                pack = dp.pack(-1,"NO MESSAGES");
             }
-            seq++;
             
             // send data
             int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
@@ -120,7 +135,7 @@ private:
                 //return 1;
             }
 
-            sleep(1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
         }
     }
 
@@ -135,13 +150,39 @@ private:
                 //return 1;
             }
             buffer[n] = '\0';
-
-            std::cout << "Dati inviati al server: " << buffer << std::endl;
+            string s(buffer);
+            size_t rec_key = static_cast<size_t>(std::stoul(s));
+            
+            if( rec_key >= received){
+                if( (rec_key-received) > 0 ){
+                    // droppa se il pacchetto è già arrivato 
+                    q.push(received);
+                    //salva i reg_key da recuperare e recuperali dopo l'arrivo di quella mancante
+                    saved.push(rec_key);
+                }else{
+                    to_send.erase(received);
+                    received++;
+                    
+                    //vedi se c'è qualcosa da recuperare e recupera finchè non se ne perde un altro allora lo rimandi e recuperi dopo il restante.
+                    while(!saved.empty() || !missing){
+                        if(saved.front() == received){
+                            to_send.erase(received);
+                            saved.pop();
+                            received++;
+                        }else{
+                            q.push(received);
+                            missing=true;
+                        }
+                    }
+                    missing=false;
+                }
+                std::cout << "Dati inviati al server: " << buffer << std::endl;
+            }
         }
     }
 
     void th_lodable(vector<std::function<void()>> & tasks){
-        while(true){
+        while(!tasks.empty()){
             std::function<void()> f;
             {
                 std::lock_guard<std::mutex> lock(task_queue_mutex);
