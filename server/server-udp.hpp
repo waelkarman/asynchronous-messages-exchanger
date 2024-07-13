@@ -47,14 +47,14 @@ private:
     bool stop_condition;
     int broken_pipe;
     size_t available;
-    TSQueue<int> query;
-    TSQueue<int> saved;
-    TSQueue<int> recv_ack_queue;
-    TSQueue<string> messages_to_print;
+    TSDeQueue<int> query;
+    TSDeQueue<int> saved;
+    TSDeQueue<int> recv_ack_queue;
+    TSDeQueue<string> messages_to_print;
     TSMap<int,string> message_queue;
     vector<thread> workers;
     vector<function<void()>> tasks;
-    int milliseconds;
+    int ms_send_interval;
     mutex task_queue_mutex;
     MessageType TYPE_MSG = MSG;
     MessageType TYPE_ACK = ACK;
@@ -68,7 +68,7 @@ private:
 
     void message_handler_loop();
 
-    void fetch_and_send_loop(const int& milliseconds);
+    void fetch_and_send_loop(const int& ms_send_interval);
 
     void acknoledge_handling_loop();
 

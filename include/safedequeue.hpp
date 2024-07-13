@@ -6,7 +6,7 @@
 using namespace std;
 
 template <typename T>
-class TSQueue {
+class TSDeQueue {
 private:
     deque<T> m_queue;
     mutex m_mutex;

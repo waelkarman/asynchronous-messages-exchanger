@@ -1,6 +1,6 @@
 #include "server-udp.hpp"
 
-ServerUDP::ServerUDP():available(0),broken_pipe(0),milliseconds(1000),stop_condition(false),client_address_available(false){
+ServerUDP::ServerUDP():available(0),broken_pipe(0),ms_send_interval(1000),stop_condition(false),client_address_available(false){
     initialize();
     main_loop();
 }
@@ -42,7 +42,7 @@ void ServerUDP::main_loop(){
         this->message_handler_loop();
     };
     function<void()> task_fetch_and_send_loop = [this](){
-        this->fetch_and_send_loop(this->milliseconds);
+        this->fetch_and_send_loop(this->ms_send_interval);
     };
     function<void()> task_acknoledge_handling_loop = [this]() {
         this->acknoledge_handling_loop();
@@ -100,7 +100,7 @@ void ServerUDP::message_handler_loop(){
     }
 }
 
-void ServerUDP::fetch_and_send_loop(const int& milliseconds){
+void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
     while (!client_address_available){
         this_thread::sleep_for(chrono::milliseconds(2000));
     }
@@ -128,7 +128,7 @@ void ServerUDP::fetch_and_send_loop(const int& milliseconds){
             close(sockfd);
         }
 
-        this_thread::sleep_for(chrono::milliseconds(milliseconds));
+        this_thread::sleep_for(chrono::milliseconds(ms_send_interval));
     }
 }
 

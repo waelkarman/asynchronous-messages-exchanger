@@ -1,6 +1,6 @@
 #include "client-udp.hpp"
 
-ClientUDP::ClientUDP():available(0),sequence(0),broken_pipe(0),milliseconds(1000),stop_condition(false){
+ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(450),ms_timeout_interval(1000),stop_condition(false){
     initialize();
     main_loop();
 }
@@ -9,13 +9,13 @@ ClientUDP::~ClientUDP(){
     deinitialize();
 }
 
-void ClientUDP::add_to_message_queue(const string& data, const int& n){
+void ClientUDP::add_to_message_queue(const string& data){
     messages_to_send.push(data);
 }
 
 void ClientUDP::initialize(){
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        cerr << "Errore nella creazione del socket" << endl;
+        cerr << "Socket create error." << endl;
     }
 
     memset(&server_addr, 0, sizeof(server_addr));
@@ -30,7 +30,7 @@ void ClientUDP::main_loop(){
         this->message_handler_loop();
     };
     function<void()> task_fetch_and_send_loop = [this](){
-        this->fetch_and_send_loop(this->milliseconds);
+        this->fetch_and_send_loop(this->ms_send_interval);
     };
     function<void()> task_acknoledge_handling_loop = [this]() {
         this->acknoledge_handling_loop();
@@ -38,11 +38,15 @@ void ClientUDP::main_loop(){
     function<void()> task_received_message_loop = [this]() {
         this->received_message_loop();
     };
+    function<void()> task_connection_status_monitor = [this]() {
+        this->connection_status_monitor();
+    };
 
     tasks.push_back(move(task_message_handler_loop));
     tasks.push_back(move(task_fetch_and_send_loop));
     tasks.push_back(move(task_acknoledge_handling_loop));
     tasks.push_back(move(task_received_message_loop));
+    tasks.push_back(move(task_connection_status_monitor));
 
     while(tasks.size()>0){
         workers.push_back(thread([this](vector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
@@ -59,11 +63,11 @@ void ClientUDP::deinitialize(){
 }
 
 void ClientUDP::message_handler_loop(){
-    while(true){
+    while(!stop_condition){
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
         cout << "Messagge received from -> " << inet_ntoa(server_addr.sin_addr) << " : " << ntohs(server_addr.sin_port) << endl;
         if (n < 0) {
-            cerr << " Errore nella ricezione dei dati" << endl;
+            cerr << "Error receiving data." << endl;
             close(sockfd);
         }
         buffer[n] = '\0';
@@ -86,11 +90,11 @@ void ClientUDP::message_handler_loop(){
 }
 
 
-void ClientUDP::fetch_and_send_loop(const int& milliseconds){
+void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
     string pack;
     string data;
     while(!stop_condition){
-        this_thread::sleep_for(chrono::milliseconds(milliseconds));
+        this_thread::sleep_for(chrono::milliseconds(ms_send_interval));
         
         if(!messages_to_send.empty()){
             data = messages_to_send.front();
@@ -105,7 +109,7 @@ void ClientUDP::fetch_and_send_loop(const int& milliseconds){
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
         if (n < 0) {
-            cerr << "Errore nell'invio dei dati" << endl;
+            cerr << "Error sending data." << endl;
             close(sockfd);
         }
 
@@ -113,17 +117,26 @@ void ClientUDP::fetch_and_send_loop(const int& milliseconds){
 
         tasks.push_back(move([this](){
             bool stop = false;
+            int retry = 0;
             while(!stop){
-                int sec = timer(timer_done,sequence);
+                int sec = timer(sequence);
                 
                 if(sent_messages.find(sec)){
-                    std::cout << "Timeout for " << sec << " resend .."<< endl;
+                    retry++;
+                    std::cout << "Timeout for " << sec << " resend .. ("<<retry<<")." << endl;
                     string pack;
                     pack = dp.pack(TYPE_MSG,sec,sent_messages.get(sec));
                     sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
                 }else{
                     stop = true;
                 }
+                
+                if(retry > 2){
+                    std::cout << "ERROR: Packet "<<sec<<" lost."<< endl;
+                    packet_failure++;
+                    stop = true;
+                }
+
             }
         }));
         workers.push_back(thread([this](vector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
@@ -132,10 +145,6 @@ void ClientUDP::fetch_and_send_loop(const int& milliseconds){
         sequence++;
     }
 }
-// lista da inviare consumata
-// mappa messaggi inviati seuqenza valore 
-// !QUALCUNO DEVE RIMUOVERE DA SENT MESSAGES
-
 
 void ClientUDP::acknoledge_handling_loop(){
     while(!stop_condition){
@@ -146,22 +155,34 @@ void ClientUDP::acknoledge_handling_loop(){
                 cout<< "ACK " << recv_ack_queue.front() << " received, message sent successfully."<<endl;
                 recv_ack_queue.pop();
             }else{
-                cout << "Duplicate ACK data already handled: " << recv_ack_queue.front() << endl;
+                cout << "ACK duplicated, data already received: " << recv_ack_queue.front() << endl;
                 recv_ack_queue.pop();
             }
 
         }
+    }
+}
 
-        // handle the received failure sequence and out of order.
-        
+void ClientUDP::connection_status_monitor(){
+    while(!stop_condition){
+        if(packet_failure > 5){
+            stop_condition = true;
+            cout << "Fatal error: broken pipe. Packet Failure "<< packet_failure << endl;
+        }else{
+            cout << "Connection alive!." << endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(10)); 
     }
 }
 
 void ClientUDP::received_message_loop(){
-    while (true) {
+    while (!stop_condition) {
         if(!messages_to_print.empty()){
             vector<string> content = dp.unpack(messages_to_print.front());
             messages_to_print.pop();
+
+
+            //RICOSTRUISCI LA SEQUENZA e per tot ricostruito stampa.
 
             cout << "Message received content " << content[2] << ",      send ack --> "<< content[1] << endl; 
             
@@ -182,8 +203,13 @@ void ClientUDP::task_launcher(vector<function<void()>> & tasks){
             }
             f = tasks.back();
             tasks.pop_back();
-            cout << "A New thread is loaded with a new task." << endl;
+            //cout << "A New thread is loaded with a new task." << endl;
         }
         f();
     }
+}
+
+ int ClientUDP::timer(int s) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms_timeout_interval));
+    return s;
 }

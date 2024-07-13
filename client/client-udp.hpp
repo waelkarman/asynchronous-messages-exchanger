@@ -27,11 +27,9 @@
  *           \ send n+1
  * 
  * commento per ogni funzione
- *  fix quando non ricevi mai risposta
- *   const ed altri attributi utili spazio attoglio gli uguale e chicche di stile
  *   aggiungere eccezioni per situazioni anomale 
  *   aggiungere CONDITION VARIABLE PER EVITARE INFINITE LOOP
- *      rimpiazza la queue con una deque
+ *   
  *     
  */
 
@@ -41,10 +39,9 @@ class ClientUDP{
 public:
     ClientUDP();
 
-    void add_to_message_queue(const string& data, const int& n = 0);
+    void add_to_message_queue(const string& data);
 
     ~ClientUDP();
-
 
 private:
     int sockfd;
@@ -53,31 +50,24 @@ private:
     socklen_t addr_len = sizeof(server_addr);
 
     bool stop_condition;
-    int broken_pipe;
-    size_t available;
-    TSQueue<int> query;
-    TSQueue<int> saved;
-    TSQueue<int> recv_ack_queue;
-    TSQueue<int> ack_waiting_list;
-    TSQueue<string> messages_to_print;
-    TSMap<int,string> message_queue;
-    TSMap<int,string> sent_messages;
-    TSQueue<string> messages_to_send;
     int sequence;
+    atomic<int> packet_failure;
+    int ms_send_interval;
+    int ms_timeout_interval;
+    TSMap<int,string> sent_messages;
+    TSDeQueue<int> recv_ack_queue;
+    TSDeQueue<string> messages_to_print;
+    TSDeQueue<string> messages_to_send;
     vector<thread> workers;
     vector<function<void()>> tasks;
-    int milliseconds;
     mutex task_queue_mutex;
     MessageType TYPE_MSG = MSG;
     MessageType TYPE_ACK = ACK;
     datapacket dp;
-    atomic<bool> timer_done = false;
 
-    int timer(std::atomic<bool>& timer_done, int s) {
-        std::this_thread::sleep_for(std::chrono::seconds(2));  // Attende 2 secondi
-        timer_done = true;
-        return s;
-    }
+    int timer(int s);
+
+    void connection_status_monitor();
 
     void initialize();
 
@@ -87,7 +77,7 @@ private:
 
     void message_handler_loop();
 
-    void fetch_and_send_loop(const int& milliseconds);
+    void fetch_and_send_loop(const int& ms_send_interval);
 
     void acknoledge_handling_loop();
     
@@ -100,12 +90,12 @@ private:
 int main() {
 
     ClientUDP s;
-    s.add_to_message_queue("CIAO",0);
-    s.add_to_message_queue("HI",1);
-    s.add_to_message_queue("SERVUS",2);
-    s.add_to_message_queue("HALLO",3);
-    s.add_to_message_queue("LIHAO",4);
-    s.add_to_message_queue("HELLO",5);
+    s.add_to_message_queue("CIAO");
+    s.add_to_message_queue("HI");
+    s.add_to_message_queue("SERVUS");
+    s.add_to_message_queue("HALLO");
+    s.add_to_message_queue("LIHAO");
+    s.add_to_message_queue("HELLO");
 
     return 0;
 }
