@@ -12,3 +12,5 @@ services:
       context: .
       dockerfile: ./client/dockerfile
     network_mode: host
+    depends_on:
+      - server
