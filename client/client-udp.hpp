@@ -21,16 +21,11 @@
 
 /**
  * 
- *  Send n\                 / resend n
- *         \ wait for ack n/
- *          \
- *           \ send n+1
  * 
- *   commento per ogni funzione
- *   aggiungere eccezioni per situazioni anomale 
- *   aggiungere CONDITION VARIABLE PER EVITARE INFINITE LOOP
- *   gestisci larrivo dei pacchetti in sequenza
- *   crea il repo git 
+ * 
+ *  NOTE:
+ *   - manage errors with exceptions .
+ *   - improve performance using condition variable sinchronization.
  */
 
 using namespace std;

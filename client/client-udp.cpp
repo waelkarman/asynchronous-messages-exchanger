@@ -9,9 +9,19 @@ ClientUDP::~ClientUDP(){
     deinitialize();
 }
 
+/**
+ *  The following method add a message to send to a message outgoing queue
+ * 
+ */
+
 void ClientUDP::add_to_message_queue(const string& data){
     messages_to_send.push(data);
 }
+
+/**
+ *  The following method initialize a datagram socket
+ *
+ */
 
 void ClientUDP::initialize(){
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -23,6 +33,11 @@ void ClientUDP::initialize(){
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 }
+
+/**
+ *  The following method create some task involved in the communication and lauch it associating it to a worker
+ * 
+ */
 
 void ClientUDP::main_loop(){
         
@@ -53,6 +68,11 @@ void ClientUDP::main_loop(){
     }
 }
 
+/**
+ *  The following method ensure the proper termination of all the task launched
+ * 
+ */
+
 void ClientUDP::deinitialize(){
     for(thread& w : workers){
         if(w.joinable()){
@@ -61,6 +81,11 @@ void ClientUDP::deinitialize(){
     }
     close(sockfd);
 }
+
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  This task gets incoming messages and process it withrespect their type.
+ */
 
 void ClientUDP::message_handler_loop(){
     while(!stop_condition){
@@ -89,6 +114,11 @@ void ClientUDP::message_handler_loop(){
     }
 }
 
+/**
+ * The following function runs as a task launched by the main loop. 
+ * It packs and send messages and initialize a timer fot each data sent. 
+ * 
+ */
 
 void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
     string pack;
@@ -146,6 +176,12 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
     }
 }
 
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  The following function handle the received ack
+ * 
+ */
+
 void ClientUDP::acknoledge_handling_loop(){
     while(!stop_condition){
 
@@ -163,9 +199,16 @@ void ClientUDP::acknoledge_handling_loop(){
     }
 }
 
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  The following function checks periodically messages failure counter and interrupt the threads if too much packet are lost
+ * 
+ */
+
 void ClientUDP::connection_status_monitor(){
+    int limit = 5;
     while(!stop_condition){
-        if(packet_failure > 5){
+        if(packet_failure > limit){
             stop_condition = true;
             cout << "Fatal error: broken pipe. Packet Failure "<< packet_failure << endl;
         }else{
@@ -174,6 +217,12 @@ void ClientUDP::connection_status_monitor(){
         std::this_thread::sleep_for(std::chrono::seconds(10)); 
     }
 }
+
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  The following function handle the received messages
+ * 
+ */
 
 void ClientUDP::received_message_loop(){
     int size = 10;
@@ -197,6 +246,11 @@ void ClientUDP::received_message_loop(){
     }
 }
 
+/**
+ *  The following code launched thread for each available task and worker
+ * 
+ */
+
 void ClientUDP::task_launcher(vector<function<void()>> & tasks){
     while(!tasks.empty()){
         function<void()> f;
@@ -213,6 +267,11 @@ void ClientUDP::task_launcher(vector<function<void()>> & tasks){
         f();
     }
 }
+
+/**
+ *  The following function counts the timeout for each packet sent.
+ * 
+ */
 
 int ClientUDP::timer(int s) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms_timeout_interval));
