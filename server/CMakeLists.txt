@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(udp-server)
+project(server-udp)
 
 set(SOURCES
-    udp-server.cpp
+    server-udp.cpp
 )
 
 set(HEADERS)
