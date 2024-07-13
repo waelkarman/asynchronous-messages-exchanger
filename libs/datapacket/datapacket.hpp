@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <utils.hpp>
 
 using namespace std;
 
@@ -11,9 +12,9 @@ class datapacket{
 public:
     datapacket();
 
-    string pack(int seq, string data){
+    string pack(MessageType mp,int seq, string data){
         stringstream ss;
-        ss << seq << ":" << data;
+        ss << mp << ":" << seq << ":" << data;
         return ss.str();
     }
 

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <datapacket.hpp>
+#include <utils.hpp>
 #include <timer.hpp>
 #include <queue>
 #include <map>
@@ -23,14 +24,15 @@
  *          \
  *           \ send n+1
  * 
- * 
+ *  sinchonizza le strutture dati comuni ai 2 thread
+ *  fix quando non ricevi mai risposta
  */
 
 std::mutex task_queue_mutex;
 class Sender{
 
 public:
-    Sender():key(0),available(0),received(0),milliseconds(1000),missing(false){}
+    Sender():key(0),available(0),key_stored(0),broken_pipe(0),milliseconds(1000),missing(false),stop_condition(false){}
 
     int initialize(){
         // Creazione del socket UDP
@@ -47,10 +49,15 @@ public:
         return 0;
     }
 
-    void send_data(string data){
-        to_send[available]=data;
-        q.push(available);
-        available++;
+    void add_to_message_queue(string data, int n = 0){
+        if(n==0){
+            message_queue[available]=data;
+            query.push(available);
+            available++;
+        }else{
+            message_queue[n]=data;
+            query.push(n);
+        }
     }
 
     void main_loop(){
@@ -59,7 +66,7 @@ public:
             this->fetch_and_send_loop(this->milliseconds);
         };
         std::function<void()> task1 = [this]() {
-            this->receive_loop();
+            this->acknoledge_handling_loop();
         };
 
         tasks.push_back(std::move(task0));
@@ -68,7 +75,6 @@ public:
         while(tasks.size()>0){
             workers.push_back(thread([this](vector<std::function<void()>> & tasks){this->th_lodable(tasks);},std::ref(tasks)));
         }
-
     }
 
     int deinitialize(){
@@ -93,38 +99,47 @@ private:
     string message = "Hello, Server";
     socklen_t addr_len = sizeof(server_addr);
     bool missing;
+    bool stop_condition;
+    int broken_pipe;
     size_t key;
     size_t available;
-    size_t received;
-    std::queue<size_t> q;
+    size_t key_stored;
+    std::queue<size_t> query;
     std::queue<size_t> saved;
-    std::map<int,string> to_send;
+    std::map<int,string> message_queue;
     std::mutex mtx;
     vector<thread> workers;
     vector<std::function<void()>> tasks;
     int milliseconds;
+    MessageType TYPE = MSG;
+
+    void printQueue(const std::queue<size_t>& q) {
+        std::queue<size_t> tempQueue = q;
+        std::cout << "Message Queue content: ";
+        while (!tempQueue.empty()) {
+            std::cout << tempQueue.front() << " ";
+            tempQueue.pop();
+        }
+        std::cout << std::endl;
+    }
 
     void fetch_and_send_loop(int milliseconds){
-        while(true){
+        while(!stop_condition){
             // message fetching
             datapacket dp;
             string pack;
             
-            if(!q.empty()){
-                key = q.front();
-                q.pop();
-
-                /**
-                 * leggo da una coda e invio
-                 * qualcuno riempie la coda e mi dice cosa inviare di nuovo
-                 * quello che invio lo metto in waiting list.
-                 * 
-                 */
-
-                message = to_send[key];
-                pack = dp.pack(key,message);
+            if(!query.empty()){
+                printQueue(query);
+                key = query.front();
+                cout << "send: invio valore estratto " << key << endl;
+                // Comment next line to test already received data. 
+                query.pop();
+                message = message_queue[key];
+                pack = dp.pack(TYPE,key,message);
             }else{
-                pack = dp.pack(-1,"NO MESSAGES");
+                cout << "send: invio valore di default -1" << endl;
+                pack = dp.pack(TYPE,-1,"MESSAGE_QUEUE EMPTY");
             }
             
             // send data
@@ -139,45 +154,63 @@ private:
         }
     }
 
-    void receive_loop(){
-        while(true){
+    void acknoledge_handling_loop(){
+        while(!stop_condition){
             // get answer from the server
 
             int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
             if (n < 0) {
-                std::cerr << "Errore nella ricezione dei dati" << std::endl;
+                std::cerr << "received: Errore nella ricezione dei dati" << std::endl;
                 close(sockfd);
                 //return 1;
             }
             buffer[n] = '\0';
             string s(buffer);
-            size_t rec_key = static_cast<size_t>(std::stoul(s));
+            size_t key_received = static_cast<size_t>(std::stoul(s));
             
-            if( rec_key >= received){
-                if( (rec_key-received) > 0 ){
-                    // droppa se il pacchetto è già arrivato 
-                    q.push(received);
-                    //salva i reg_key da recuperare e recuperali dopo l'arrivo di quella mancante
-                    saved.push(rec_key);
-                }else{
-                    to_send.erase(received);
-                    received++;
+            if( key_received >= key_stored){
+                if( (key_received-key_stored) > 0 && message_queue.find(key_stored) != message_queue.end()){
+                    cout << "received: chiedo il rinvio di "<< key_stored << endl;
+
+                    query.push(key_stored);
+                    cout << "received: salvo il valore fra i ricevuti non processati "<< key_stored << endl;
+                    saved.push(key_received); 
+                }else if(message_queue.find(key_stored) != message_queue.end()){
+                    cout << "received: ricevo "<< key_stored <<  " e cancello i dati associati " << endl;
+                    message_queue.erase(key_stored);
                     
-                    //vedi se c'è qualcosa da recuperare e recupera finchè non se ne perde un altro allora lo rimandi e recuperi dopo il restante.
-                    while(!saved.empty() || !missing){
-                        if(saved.front() == received){
-                            to_send.erase(received);
+                    while(!saved.empty() && !missing){
+                        cout << "received: Vedi se la lista dei non processati contiene qualcosa" << endl;
+                        if(saved.front() == key_stored+1){
+                            cout << "received: RECUPERO il mancante dalla lista" << endl;
+                            message_queue.erase(key_stored);
                             saved.pop();
-                            received++;
+                            key_stored++;
                         }else{
-                            q.push(received);
+                            cout << "received: mi fermo a recuperare perche manca "<< key_stored << endl;
+                            query.push(key_stored);
                             missing=true;
                         }
                     }
+                    key_stored++;
                     missing=false;
                 }
-                std::cout << "Dati inviati al server: " << buffer << std::endl;
+                
+                std::cout << "received: Dati inviati al server: " << buffer << std::endl;
+
+                if(message_queue.find(key_stored) == message_queue.end() && !message_queue.empty()){
+                    cout << "received: IMPOSSIBILE RECUPERARE I DATI PER IL NUMERO DI SEQUENZA "<< key_stored << endl; 
+                    broken_pipe++;
+                    if(broken_pipe>2){
+                        cout << "fatal error: broken pipe. Transmission failure." << endl;
+                        stop_condition=true;
+                    }
+                }
+                
+            }else{
+                cout<< "received: DATI ASSICIATO A "<< key_stored << " GIA RICEVUTI"<<endl;
             }
+
         }
     }
 
@@ -205,21 +238,15 @@ private:
 int main() {
 
     Sender s;
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
-    s.send_data("CIAOOO");
+    s.add_to_message_queue("CIAO",0);
+    s.add_to_message_queue("SERVUS",1);
+    s.add_to_message_queue("HI",2);
     s.initialize();
     s.main_loop();
-    s.send_data("HALLO");
-    s.send_data("HALLO");
-    s.send_data("HALLO");
-    s.send_data("HALLO");
+    s.add_to_message_queue("HALLO",3);
+    s.add_to_message_queue("LIHAO",4);
+    s.add_to_message_queue("HELLO",5);
 
 
-
+    return 0;
 }
