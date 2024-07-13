@@ -26,11 +26,11 @@
  *          \
  *           \ send n+1
  * 
- * commento per ogni funzione
+ *   commento per ogni funzione
  *   aggiungere eccezioni per situazioni anomale 
  *   aggiungere CONDITION VARIABLE PER EVITARE INFINITE LOOP
- *   
- *     
+ *   gestisci larrivo dei pacchetti in sequenza
+ *   crea il repo git 
  */
 
 using namespace std;
@@ -56,7 +56,7 @@ private:
     int ms_timeout_interval;
     TSMap<int,string> sent_messages;
     TSDeQueue<int> recv_ack_queue;
-    TSDeQueue<string> messages_to_print;
+    TSMap<int,string> messages_to_print;
     TSDeQueue<string> messages_to_send;
     vector<thread> workers;
     vector<function<void()>> tasks;
@@ -90,6 +90,18 @@ private:
 int main() {
 
     ClientUDP s;
+    s.add_to_message_queue("CIAO");
+    s.add_to_message_queue("HI");
+    s.add_to_message_queue("SERVUS");
+    s.add_to_message_queue("HALLO");
+    s.add_to_message_queue("LIHAO");
+    s.add_to_message_queue("HELLO");
+    s.add_to_message_queue("CIAO");
+    s.add_to_message_queue("HI");
+    s.add_to_message_queue("SERVUS");
+    s.add_to_message_queue("HALLO");
+    s.add_to_message_queue("LIHAO");
+    s.add_to_message_queue("HELLO");
     s.add_to_message_queue("CIAO");
     s.add_to_message_queue("HI");
     s.add_to_message_queue("SERVUS");

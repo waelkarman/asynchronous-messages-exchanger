@@ -77,11 +77,11 @@ void ClientUDP::message_handler_loop(){
         switch (stoi(pack[0])) {
             case MSG:
                 cout<<"Message type MSG."<<endl;
-                messages_to_print.push(s);
+                messages_to_print.insert(stoi(pack[1]),pack[2]);
                 break;
             case ACK:
                 cout<<"Message type ACK." << endl;
-                recv_ack_queue.push(static_cast<int>(stoi(pack[1])));
+                recv_ack_queue.push(stoi(pack[1]));
                 break;
             default:
                 cout<<"Message type unknown."<<endl;
@@ -176,18 +176,23 @@ void ClientUDP::connection_status_monitor(){
 }
 
 void ClientUDP::received_message_loop(){
+    int size = 10;
+    int message_processed = 0;
+    vector<string> ordered_window(size);
     while (!stop_condition) {
-        if(!messages_to_print.empty()){
-            vector<string> content = dp.unpack(messages_to_print.front());
-            messages_to_print.pop();
-
-
-            //RICOSTRUISCI LA SEQUENZA e per tot ricostruito stampa.
-
-            cout << "Message received content " << content[2] << ",      send ack --> "<< content[1] << endl; 
+        if(messages_to_print.find(message_processed)){
+            ordered_window[static_cast<int>(message_processed % size)] = messages_to_print.get(message_processed);
+            messages_to_print.erase(message_processed);
             
-            string pack = dp.pack(TYPE_ACK,stoi(content[1]),"ACK_MESSAGE");
-            sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);            
+            string pack = dp.pack(TYPE_ACK,message_processed,"ACK_MESSAGE");
+            sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);       
+
+            if(static_cast<int>(message_processed % size) == (size-1)){
+                cout << "Received messages (ordered) ---------- >>";
+                for_each(ordered_window.begin(),ordered_window.end(),[](string i){cout<< i << " ";});
+                cout<<endl;  
+            }
+            message_processed++; 
         }
     }
 }
@@ -209,7 +214,7 @@ void ClientUDP::task_launcher(vector<function<void()>> & tasks){
     }
 }
 
- int ClientUDP::timer(int s) {
+int ClientUDP::timer(int s) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms_timeout_interval));
     return s;
 }

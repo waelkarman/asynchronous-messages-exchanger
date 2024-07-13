@@ -3,6 +3,7 @@
 #include <functional>
 #include <cstring>
 #include <thread>
+#include <atomic>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -33,7 +34,7 @@ class ServerUDP{
 public:
     ServerUDP();
 
-    void add_to_message_queue(const string& data, const int& n = 0);
+    void add_to_message_queue(const string& data);
 
     ~ServerUDP();
 
@@ -45,21 +46,25 @@ private:
 
     bool client_address_available;
     bool stop_condition;
-    int broken_pipe;
-    size_t available;
-    TSDeQueue<int> query;
-    TSDeQueue<int> saved;
+    int sequence;
+    atomic<int> packet_failure;
+    int ms_send_interval;
+    int ms_timeout_interval;
+    TSMap<int,string> sent_messages;
+    TSMap<int,string> messages_to_print;
     TSDeQueue<int> recv_ack_queue;
-    TSDeQueue<string> messages_to_print;
-    TSMap<int,string> message_queue;
+    TSDeQueue<string> messages_to_send;
     vector<thread> workers;
     vector<function<void()>> tasks;
-    int ms_send_interval;
     mutex task_queue_mutex;
     MessageType TYPE_MSG = MSG;
     MessageType TYPE_ACK = ACK;
     datapacket dp;
 
+    int timer(int s);
+
+    void connection_status_monitor();
+    
     void initialize();
 
     void main_loop();
@@ -87,6 +92,25 @@ int main() {
     r.add_to_message_queue("HORSE");
     r.add_to_message_queue("CAMEL");
     r.add_to_message_queue("TURTLE");
-    
+    r.add_to_message_queue("DOG");
+    r.add_to_message_queue("CAT");
+    r.add_to_message_queue("ELEPHANT");
+    r.add_to_message_queue("HORSE");
+    r.add_to_message_queue("CAMEL");
+    r.add_to_message_queue("TURTLE");
+    r.add_to_message_queue("DOG");
+    r.add_to_message_queue("CAT");
+    r.add_to_message_queue("ELEPHANT");
+    r.add_to_message_queue("HORSE");
+    r.add_to_message_queue("CAMEL");
+    r.add_to_message_queue("TURTLE");
+    r.add_to_message_queue("DOG");
+    r.add_to_message_queue("CAT");
+    r.add_to_message_queue("ELEPHANT");
+    r.add_to_message_queue("HORSE");
+    r.add_to_message_queue("CAMEL");
+    r.add_to_message_queue("TURTLE");
+
+
     return 0; 
 }
