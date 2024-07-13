@@ -52,7 +52,7 @@ void ServerUDP::main_loop(){
     };
 
     tasks.push_back(move(task_message_handler_loop));
-    tasks.push_back(move(task_fetch_and_send_loop));
+    //tasks.push_back(move(task_fetch_and_send_loop));
     tasks.push_back(move(task_acknoledge_handling_loop));
     tasks.push_back(move(task_received_message_loop));
 
@@ -88,11 +88,11 @@ void ServerUDP::message_handler_loop(){
         switch (stoi(pack[0])) {
             case MSG:
                 cout<<"il messaggio è un MSG"<<endl;
-                recv_queue.push(s);
+                messages_to_print.push(s);
                 break;
             case ACK:
                 cout<<"il messaggio è un ACK"<<endl;
-                ack_queue.push(static_cast<int>(stoi(pack[1])));
+                recv_ack_queue.push(static_cast<int>(stoi(pack[1])));
                 break;
             default:
                 cout<<"messaggio non categorizzato"<<endl;
@@ -137,14 +137,14 @@ void ServerUDP::acknoledge_handling_loop(){
     bool missing=false;
     while(!stop_condition){
 
-        if(!ack_queue.empty()){
-            int key_received = ack_queue.front();
-            ack_queue.pop();
+        if(!recv_ack_queue.empty()){
+            int key_received = recv_ack_queue.front();
+            recv_ack_queue.pop();
             
             if( key_received >= key_stored){
                 if( (key_received-key_stored) > 0 && message_queue.find(key_stored)){
                     cout << " chiedo il rinvio di "<< key_stored << endl;
-                    query.push(key_stored);
+                    query.push_front(key_stored);
                     cout << " salvo il valore fra i ricevuti non processati "<< key_received << endl;
                     saved.push(key_received); 
                 }else if(message_queue.find(key_stored)){
@@ -193,9 +193,9 @@ void ServerUDP::acknoledge_handling_loop(){
 void ServerUDP::received_message_loop(){
     // bool first = true;
     while (true) {
-        if(!recv_queue.empty()){
-            vector<string> content = dp.unpack(recv_queue.front());
-            recv_queue.pop();
+        if(!messages_to_print.empty()){
+            vector<string> content = dp.unpack(messages_to_print.front());
+            messages_to_print.pop();
             
             cout << "ricevuto  " << content[2] << " invio  ack: "<< content[1] << endl; 
 

@@ -1,6 +1,6 @@
 #include "client-udp.hpp"
 
-ClientUDP::ClientUDP():available(0),broken_pipe(0),milliseconds(1000),stop_condition(false){
+ClientUDP::ClientUDP():available(0),sequence(0),broken_pipe(0),milliseconds(1000),stop_condition(false){
     initialize();
     main_loop();
 }
@@ -10,14 +10,7 @@ ClientUDP::~ClientUDP(){
 }
 
 void ClientUDP::add_to_message_queue(const string& data, const int& n){
-    if(n==0){
-        message_queue.insert(available,data);
-        query.push(available);
-        available++;
-    }else{
-        message_queue.insert(n,data);
-        query.push(n);
-    }
+    messages_to_send.push(data);
 }
 
 void ClientUDP::initialize(){
@@ -68,7 +61,7 @@ void ClientUDP::deinitialize(){
 void ClientUDP::message_handler_loop(){
     while(true){
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
-        cout << "Ricevuto messaggio da " << inet_ntoa(server_addr.sin_addr) << ":" << ntohs(server_addr.sin_port) << endl;
+        cout << "Messagge received from -> " << inet_ntoa(server_addr.sin_addr) << " : " << ntohs(server_addr.sin_port) << endl;
         if (n < 0) {
             cerr << " Errore nella ricezione dei dati" << endl;
             close(sockfd);
@@ -79,15 +72,15 @@ void ClientUDP::message_handler_loop(){
 
         switch (stoi(pack[0])) {
             case MSG:
-                cout<<"Il messaggio è un MSG."<<endl;
-                recv_queue.push(s);
+                cout<<"Message type MSG."<<endl;
+                messages_to_print.push(s);
                 break;
             case ACK:
-                cout<<"Il messaggio è un ACK. " << endl;
-                ack_queue.push(static_cast<int>(stoi(pack[1])));
+                cout<<"Message type ACK." << endl;
+                recv_ack_queue.push(static_cast<int>(stoi(pack[1])));
                 break;
             default:
-                cout<<"messaggio non categorizzato"<<endl;
+                cout<<"Message type unknown."<<endl;
         }
     }
 }
@@ -95,21 +88,19 @@ void ClientUDP::message_handler_loop(){
 
 void ClientUDP::fetch_and_send_loop(const int& milliseconds){
     string pack;
+    string data;
     while(!stop_condition){
         this_thread::sleep_for(chrono::milliseconds(milliseconds));
         
-        if(!query.empty()){
-            query.printQueue();
-            int key = query.front();
-            cout << "send: invio valore estratto " << key << endl;
-            query.pop();
-            if(!message_queue.find(key)){ //fix accesso a dato non presente perche sono stati richiesti piu rinvii
-                continue;
-            }
-            pack = dp.pack(TYPE_MSG,key,message_queue.get(key));
+        if(!messages_to_send.empty()){
+            data = messages_to_send.front();
+            cout << "Sending: "<< data << " with   ack --> " << sequence << endl;
+            pack = dp.pack(TYPE_MSG,sequence,data);
+            messages_to_send.pop();
         }else{
-            cout << "send: invio valore di default -1" << endl;
-            pack = dp.pack(TYPE_MSG,-1,"ALIVE");
+            data = "ALIVE";
+            cout << "Sending: "<< data << " with   ack --> " << sequence << endl;
+            pack = dp.pack(TYPE_MSG,sequence,data);
         }
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
@@ -117,75 +108,62 @@ void ClientUDP::fetch_and_send_loop(const int& milliseconds){
             cerr << "Errore nell'invio dei dati" << endl;
             close(sockfd);
         }
+
+        sent_messages.insert(sequence,data);
+
+        tasks.push_back(move([this](){
+            bool stop = false;
+            while(!stop){
+                int sec = timer(timer_done,sequence);
+                
+                if(sent_messages.find(sec)){
+                    std::cout << "Timeout for " << sec << " resend .."<< endl;
+                    string pack;
+                    pack = dp.pack(TYPE_MSG,sec,sent_messages.get(sec));
+                    sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
+                }else{
+                    stop = true;
+                }
+            }
+        }));
+        workers.push_back(thread([this](vector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
+
+  
+        sequence++;
     }
 }
+// lista da inviare consumata
+// mappa messaggi inviati seuqenza valore 
+// !QUALCUNO DEVE RIMUOVERE DA SENT MESSAGES
+
 
 void ClientUDP::acknoledge_handling_loop(){
-    int key_stored=0;
-    bool missing=false;
     while(!stop_condition){
 
-        if(!ack_queue.empty()){
-            int key_received = ack_queue.front();
-            ack_queue.pop();
-            
-            if( key_received >= key_stored){
-                if( (key_received-key_stored) > 0 && message_queue.find(key_stored)){
-                    cout << "chiedo il rinvio di "<< key_stored << endl;
-                    query.push(key_stored);
-                    cout << "salvo il valore fra i ricevuti non processati "<< key_received << endl;
-                    saved.push(key_received);
-                }else if(message_queue.find(key_stored)){
-                    cout << "ack "<< key_stored <<  " ricevuto, cancello i dati associati " << endl;
-                    message_queue.erase(key_stored);
-                    key_stored++;
-
-                    while(!saved.empty() && !missing){
-                        cout << "Vedi se la lista dei non processati contiene qualcosa" << endl;
-                        if(saved.front() == key_stored){
-                            cout << "RECUPERO  "<< saved.front() <<" il mancante dalla lista" << endl;
-                            message_queue.erase(key_stored);
-                            saved.pop();
-                            key_stored++;
-                        }
-                        else{
-                            cout << "mi fermo a recuperare perche manca "<< key_stored << endl;
-                            query.push(key_stored);
-                            missing=true;
-                        }
-                    }
-                    
-                    missing=false;
-                }
-                
-                if(!message_queue.find(key_stored) && !message_queue.empty()){
-                    cout << "Si blocca la richiesta di rinvio di un dato che non è presente nella mappa."<< key_stored << endl; 
-                    broken_pipe++;
-                    if(broken_pipe>2){
-                        cout << "fatal error: broken pipe. Transmission failure." << endl;
-                        stop_condition=true;
-                    }
-                }
-                
+        while(!recv_ack_queue.empty()){
+            if(sent_messages.find(recv_ack_queue.front())){
+                sent_messages.erase(recv_ack_queue.front());
+                cout<< "ACK " << recv_ack_queue.front() << " received, message sent successfully."<<endl;
+                recv_ack_queue.pop();
             }else{
-                if(key_received != -1){
-                    cout<< "DATI ASSICIATO A "<< key_received << " GIA RICEVUTI"<<endl;
-                }else{
-                    cout<< "Alive ack processed" << endl; 
-                }
+                cout << "Duplicate ACK data already handled: " << recv_ack_queue.front() << endl;
+                recv_ack_queue.pop();
             }
 
         }
+
+        // handle the received failure sequence and out of order.
+        
     }
 }
 
 void ClientUDP::received_message_loop(){
     while (true) {
-        if(!recv_queue.empty()){
-            vector<string> content = dp.unpack(recv_queue.front());
-            recv_queue.pop();
+        if(!messages_to_print.empty()){
+            vector<string> content = dp.unpack(messages_to_print.front());
+            messages_to_print.pop();
 
-            cout << "ricevuto  " << content[2] << " invio ack: "<< content[1] << endl; 
+            cout << "Message received content " << content[2] << ",      send ack --> "<< content[1] << endl; 
             
             string pack = dp.pack(TYPE_ACK,stoi(content[1]),"ACK_MESSAGE");
             sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);            
@@ -204,7 +182,7 @@ void ClientUDP::task_launcher(vector<function<void()>> & tasks){
             }
             f = tasks.back();
             tasks.pop_back();
-            cout << "Thread loaded with task: " << tasks.size() << endl;
+            cout << "A New thread is loaded with a new task." << endl;
         }
         f();
     }

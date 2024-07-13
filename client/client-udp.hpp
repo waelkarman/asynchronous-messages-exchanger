@@ -3,6 +3,7 @@
 #include <functional>
 #include <cstring>
 #include <thread>
+#include <atomic>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -11,7 +12,7 @@
 
 #include "datapacket.hpp"
 #include "utils.hpp"
-#include "safequeue.hpp"
+#include "safedequeue.hpp"
 #include "safemap.hpp"
 
 #define PORT 12345
@@ -56,9 +57,13 @@ private:
     size_t available;
     TSQueue<int> query;
     TSQueue<int> saved;
-    TSQueue<int> ack_queue;
-    TSQueue<string> recv_queue;
+    TSQueue<int> recv_ack_queue;
+    TSQueue<int> ack_waiting_list;
+    TSQueue<string> messages_to_print;
     TSMap<int,string> message_queue;
+    TSMap<int,string> sent_messages;
+    TSQueue<string> messages_to_send;
+    int sequence;
     vector<thread> workers;
     vector<function<void()>> tasks;
     int milliseconds;
@@ -66,6 +71,13 @@ private:
     MessageType TYPE_MSG = MSG;
     MessageType TYPE_ACK = ACK;
     datapacket dp;
+    atomic<bool> timer_done = false;
+
+    int timer(std::atomic<bool>& timer_done, int s) {
+        std::this_thread::sleep_for(std::chrono::seconds(2));  // Attende 2 secondi
+        timer_done = true;
+        return s;
+    }
 
     void initialize();
 

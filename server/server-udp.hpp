@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #include "datapacket.hpp"
-#include "safequeue.hpp"
+#include "safedequeue.hpp"
 #include "safemap.hpp"
 #include "utils.hpp"
 
@@ -49,8 +49,8 @@ private:
     size_t available;
     TSQueue<int> query;
     TSQueue<int> saved;
-    TSQueue<int> ack_queue;
-    TSQueue<string> recv_queue;
+    TSQueue<int> recv_ack_queue;
+    TSQueue<string> messages_to_print;
     TSMap<int,string> message_queue;
     vector<thread> workers;
     vector<function<void()>> tasks;
