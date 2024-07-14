@@ -20,12 +20,10 @@
 
 /**
  * 
- *  Send n\                 / resend n
- *         \ wait for ack n/
- *          \
- *           \ send n+1
  * 
- *  sinchonizza le strutture dati comuni ai 2 thread
+ * 
+ *  Still to be done:
+ *   - improve performance using condition variable sinchronization.
  */
 
 using namespace std;

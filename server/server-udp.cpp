@@ -9,9 +9,19 @@ ServerUDP::~ServerUDP(){
     deinitialize();
 }
 
+/**
+ *  The following method add a message to send to a message outgoing queue
+ * 
+ */
+
 void ServerUDP::add_to_message_queue(const string& data){
     messages_to_send.push(data);
 }
+
+/**
+ *  The following method initialize a datagram socket
+ *
+ */
 
 void ServerUDP::initialize(){
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -28,6 +38,11 @@ void ServerUDP::initialize(){
         close(sockfd);
     }
 }
+
+/**
+ *  The following method create some task involved in the communication and lauch it associating it to a worker
+ * 
+ */
 
 void ServerUDP::main_loop(){
     
@@ -58,6 +73,10 @@ void ServerUDP::main_loop(){
     }
 }
 
+/**
+ *  The following method ensure the proper termination of all the task launched
+ * 
+ */
 
 void ServerUDP::deinitialize(){
     for(thread& w : workers){
@@ -67,6 +86,11 @@ void ServerUDP::deinitialize(){
     }
     close(sockfd);
 }
+
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  This task gets incoming messages and process it withrespect their type.
+ */
 
 void ServerUDP::message_handler_loop(){
     while(!stop_condition){
@@ -96,6 +120,12 @@ void ServerUDP::message_handler_loop(){
         }
     }
 }
+
+/**
+ * The following function runs as a task launched by the main loop. 
+ * It packs and send messages and initialize a timer fot each data sent. 
+ * 
+ */
 
 void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
     while (!client_address_available){
@@ -156,6 +186,12 @@ void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
     }
 }
 
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  The following function handle the received ack
+ * 
+ */
+
 void ServerUDP::acknoledge_handling_loop(){
     while(!stop_condition){
 
@@ -173,6 +209,12 @@ void ServerUDP::acknoledge_handling_loop(){
     }
 }
 
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  The following function checks periodically messages failure counter and interrupt the threads if too much packet are lost
+ * 
+ */
+
 void ServerUDP::connection_status_monitor(){
     while(!stop_condition){
         if(packet_failure > 5){
@@ -184,6 +226,12 @@ void ServerUDP::connection_status_monitor(){
         std::this_thread::sleep_for(std::chrono::seconds(10)); 
     }
 }
+
+/**
+ *  The following function runs as a task launched by the main loop.
+ *  The following function handle the received messages
+ * 
+ */
 
 void ServerUDP::received_message_loop(){
     int size = 10;
@@ -208,6 +256,11 @@ void ServerUDP::received_message_loop(){
     }
 }
 
+/**
+ *  The following code launched thread for each available task and worker
+ * 
+ */
+
 void ServerUDP::task_launcher(vector<function<void()>> & tasks){
     while(!tasks.empty()){
         function<void()> f;
@@ -224,6 +277,11 @@ void ServerUDP::task_launcher(vector<function<void()>> & tasks){
         f();
     }
 }
+
+/**
+ *  The following function counts the timeout for each packet sent.
+ * 
+ */
 
 int ServerUDP::timer(int s) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms_timeout_interval));
