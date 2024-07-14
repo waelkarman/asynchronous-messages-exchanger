@@ -92,8 +92,8 @@ void ClientUDP::message_handler_loop(){
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
         cout << "Messagge received from -> " << inet_ntoa(server_addr.sin_addr) << " : " << ntohs(server_addr.sin_port) << endl;
         if (n < 0) {
-            throw recv_data_exception();
             close(sockfd);
+            throw recv_data_exception();
         }
         buffer[n] = '\0';
         string s(buffer);
@@ -139,8 +139,8 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
         if (n < 0) {
-            throw send_data_exception();
             close(sockfd);
+            throw send_data_exception();
         }
 
         sent_messages.insert(sequence,data);

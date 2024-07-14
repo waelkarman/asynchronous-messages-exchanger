@@ -25,7 +25,7 @@ void ServerUDP::add_to_message_queue(const string& data){
 
 void ServerUDP::initialize(){
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        cerr << "Socket create error." << endl;
+        throw create_socket_exception();
     }
 
     memset(&server_addr, 0, sizeof(server_addr));
@@ -97,8 +97,8 @@ void ServerUDP::message_handler_loop(){
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
         cout << "Messagge received from -> " << inet_ntoa(client_addr.sin_addr) << " : " << ntohs(client_addr.sin_port) << endl;
         if (n < 0) {
-            cerr << "Error receiving data." << endl;
             close(sockfd);
+            throw recv_data_exception();
         }else{
             client_address_available = true;
         }
@@ -149,8 +149,8 @@ void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&client_addr, addr_len);
         if (n < 0) {
-            cerr << "Error sending data." << endl;
             close(sockfd);
+            throw send_data_exception();
         }
 
         sent_messages.insert(sequence,data);
@@ -219,7 +219,7 @@ void ServerUDP::connection_status_monitor(){
     while(!stop_condition){
         if(packet_failure > 5){
             stop_condition = true;
-            cout << "Fatal error: broken pipe. Packet Failure "<< packet_failure << endl;
+            throw broken_pipe_exception(packet_failure);
         }else{
             cout << "Connection alive!." << endl;
         }
