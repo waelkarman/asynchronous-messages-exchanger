@@ -39,3 +39,5 @@ to build and run the project please use:
 ```
 mkdir build; cd build; cmake ..; make ; ./< executable name >
 ```
+# Arch main view
+<img src="docs/main-view.png">
