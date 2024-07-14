@@ -14,6 +14,10 @@
 #include "utils.hpp"
 #include "safedequeue.hpp"
 #include "safemap.hpp"
+#include "create_socket_exception.hpp"
+#include "recv_data_exception.hpp"
+#include "send_data_exception.hpp"
+#include "broken_pipe_exception.hpp"
 
 #define PORT 12345
 #define BUFFER_SIZE 1024
@@ -23,8 +27,7 @@
  * 
  * 
  * 
- *  NOTE:
- *   - manage errors with exceptions .
+ *  Still to be done:
  *   - improve performance using condition variable sinchronization.
  */
 
