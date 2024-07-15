@@ -4,6 +4,7 @@
 #include <cstring>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -26,8 +27,6 @@
  * 
  * 
  * 
- *  Still to be done:
- *   - improve performance using condition variable sinchronization.
  */
 
 using namespace std;
@@ -63,24 +62,21 @@ private:
     MessageType TYPE_ACK = ACK;
     datapacket dp;
 
+    std::condition_variable cv_received_message;
+    std::mutex mtx_received_message;
+
+    std::condition_variable cv_acknoledge_handling;
+    std::mutex mtx_acknoledge_handling;
+
     int timer(int s);
-
     void connection_status_monitor();
-    
     void initialize();
-
     void main_loop();
-
     void deinitialize();
-
     void message_handler_loop();
-
     void fetch_and_send_loop(const int& ms_send_interval);
-
     void acknoledge_handling_loop();
-
     void received_message_loop();
-
     void task_launcher(vector<function<void()>> & tasks);
 };
 

@@ -110,10 +110,12 @@ void ServerUDP::message_handler_loop(){
             case MSG:
                 cout<<"Message type MSG."<<endl;
                 messages_to_print.insert(stoi(pack[1]),pack[2]);
+                cv_received_message.notify_all();
                 break;
             case ACK:
-                cout<<"Message type ACK."<< endl;
+                cout<<"Message type ACK." << endl;
                 recv_ack_queue.push(stoi(pack[1]));
+                cv_acknoledge_handling.notify_all();
                 break;
             default:
                 cout<<"Message type unknown."<<endl;
@@ -194,6 +196,14 @@ void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
 
 void ServerUDP::acknoledge_handling_loop(){
     while(!stop_condition){
+
+        {
+            std::unique_lock<std::mutex> acknoledge_handling_loop_lock(mtx_acknoledge_handling);
+            cv_acknoledge_handling.wait(acknoledge_handling_loop_lock, [this](){ 
+                return !recv_ack_queue.empty();
+            });
+        }
+
         while(!recv_ack_queue.empty()){
             if(sent_messages.find(recv_ack_queue.front())){
                 sent_messages.erase(recv_ack_queue.front());
@@ -217,6 +227,8 @@ void ServerUDP::connection_status_monitor(){
     while(!stop_condition){
         if(packet_failure > 0){
             stop_condition = true;
+            cv_received_message.notify_all();
+            cv_acknoledge_handling.notify_all();
             throw broken_pipe_exception(packet_failure);
         }else{
             cout << "Connection alive!." << endl;
@@ -236,6 +248,14 @@ void ServerUDP::received_message_loop(){
     int message_processed = 0;
     vector<string> ordered_window(size);
     while (!stop_condition) {
+
+        {
+            std::unique_lock<std::mutex> received_message_loop_lock(mtx_received_message);
+            cv_received_message.wait(received_message_loop_lock, [this](){ 
+                return !messages_to_print.empty();
+            });
+        }
+
         if(messages_to_print.find(message_processed)){
             ordered_window[static_cast<int>(message_processed % size)] = messages_to_print.get(message_processed);
             messages_to_print.erase(message_processed);
