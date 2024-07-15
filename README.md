@@ -41,3 +41,6 @@ mkdir build; cd build; cmake ..; make ; ./< executable name >
 ```
 # Arch main view
 <img src="docs/main-view.png">
+
+###### Improvements : 
+- Manage message_processed and sequence rollover.
