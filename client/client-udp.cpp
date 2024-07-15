@@ -204,9 +204,8 @@ void ClientUDP::acknoledge_handling_loop(){
  */
 
 void ClientUDP::connection_status_monitor(){
-    int limit = 5;
     while(!stop_condition){
-        if(packet_failure > limit){
+        if(packet_failure > 0){
             stop_condition = true;
             throw broken_pipe_exception(packet_failure);
         }else{
