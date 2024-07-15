@@ -103,6 +103,7 @@ void ClientUDP::message_handler_loop(){
             case MSG:
                 cout<<"Message type MSG."<<endl;
                 messages_to_print.insert(stoi(pack[1]),pack[2]);
+                sendto(sockfd, dp.pack(TYPE_ACK,stoi(pack[1]),"ACK_MESSAGE").c_str(), strlen(dp.pack(TYPE_ACK,stoi(pack[1]),"ACK_MESSAGE").c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
                 cv_received_message.notify_all();
                 break;
             case ACK:
@@ -248,10 +249,7 @@ void ClientUDP::received_message_loop(){
         
         if(messages_to_print.find(message_processed)){
             ordered_window[static_cast<int>(message_processed % size)] = messages_to_print.get(message_processed);
-            messages_to_print.erase(message_processed);
-            
-            string pack = dp.pack(TYPE_ACK,message_processed,"ACK_MESSAGE");
-            sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);       
+            messages_to_print.erase(message_processed);       
 
             if(static_cast<int>(message_processed % size) == (size-1)){
                 cout << "Received messages (ordered) ---------- >>";
