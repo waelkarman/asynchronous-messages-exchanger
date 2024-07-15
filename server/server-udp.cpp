@@ -112,7 +112,7 @@ void ServerUDP::message_handler_loop(){
                 messages_to_print.insert(stoi(pack[1]),pack[2]);
                 break;
             case ACK:
-                cout<<"Message type ACK."<<endl;
+                cout<<"Message type ACK."<< endl;
                 recv_ack_queue.push(stoi(pack[1]));
                 break;
             default:
@@ -194,7 +194,6 @@ void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
 
 void ServerUDP::acknoledge_handling_loop(){
     while(!stop_condition){
-
         while(!recv_ack_queue.empty()){
             if(sent_messages.find(recv_ack_queue.front())){
                 sent_messages.erase(recv_ack_queue.front());
@@ -204,7 +203,6 @@ void ServerUDP::acknoledge_handling_loop(){
                 cout << "ACK duplicated, data already received: " << recv_ack_queue.front() << endl;
                 recv_ack_queue.pop();
             }
-
         }
     }
 }
@@ -216,8 +214,9 @@ void ServerUDP::acknoledge_handling_loop(){
  */
 
 void ServerUDP::connection_status_monitor(){
+    int limit = 5;
     while(!stop_condition){
-        if(packet_failure > 5){
+        if(packet_failure > limit){
             stop_condition = true;
             throw broken_pipe_exception(packet_failure);
         }else{
@@ -235,7 +234,7 @@ void ServerUDP::connection_status_monitor(){
 
 void ServerUDP::received_message_loop(){
     int size = 10;
-    int message_processed=0;
+    int message_processed = 0;
     vector<string> ordered_window(size);
     while (!stop_condition) {
         if(messages_to_print.find(message_processed)){
@@ -252,7 +251,6 @@ void ServerUDP::received_message_loop(){
             }
             message_processed++;
         }
-
     }
 }
 

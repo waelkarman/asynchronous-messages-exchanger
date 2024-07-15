@@ -184,7 +184,6 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
 
 void ClientUDP::acknoledge_handling_loop(){
     while(!stop_condition){
-
         while(!recv_ack_queue.empty()){
             if(sent_messages.find(recv_ack_queue.front())){
                 sent_messages.erase(recv_ack_queue.front());
@@ -194,7 +193,6 @@ void ClientUDP::acknoledge_handling_loop(){
                 cout << "ACK duplicated, data already received: " << recv_ack_queue.front() << endl;
                 recv_ack_queue.pop();
             }
-
         }
     }
 }
@@ -210,7 +208,6 @@ void ClientUDP::connection_status_monitor(){
     while(!stop_condition){
         if(packet_failure > limit){
             stop_condition = true;
-            //cout << "Fatal error: broken pipe. Packet Failure "<< packet_failure << endl;
             throw broken_pipe_exception(packet_failure);
         }else{
             cout << "Connection alive!." << endl;
