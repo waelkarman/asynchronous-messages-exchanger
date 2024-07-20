@@ -69,7 +69,7 @@ void ClientUDP::main_loop(){
 }
 
 /**
- *  The following method ensure the proper termination of all the task launched
+ *  The following method ensure the proper termination of all the tasks launched
  * 
  */
 

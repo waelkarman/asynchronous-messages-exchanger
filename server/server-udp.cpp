@@ -74,7 +74,7 @@ void ServerUDP::main_loop(){
 }
 
 /**
- *  The following method ensure the proper termination of all the task launched
+ *  The following method ensure the proper termination of all the tasks launched
  * 
  */
 
@@ -272,7 +272,7 @@ void ServerUDP::received_message_loop(){
 }
 
 /**
- *  The following code is assigned to each task. It fetches an available task and executes it.
+ *  The following code is assigned to each task. It fetches an available tasks and executes it.
  * 
  */
 
