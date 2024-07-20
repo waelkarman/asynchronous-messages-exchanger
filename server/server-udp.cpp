@@ -232,7 +232,7 @@ void ServerUDP::connection_status_monitor(){
             cv_acknoledge_handling.notify_all();
             throw broken_pipe_exception(packet_failure);
         }else{
-            cout << "Connection alive!." << endl;
+            cout << "Connection alive!" << endl;
         }
         std::this_thread::sleep_for(std::chrono::seconds(10)); 
     }
