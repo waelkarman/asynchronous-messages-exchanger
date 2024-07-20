@@ -4,7 +4,7 @@ datapacket::datapacket(){}
 
 string datapacket::pack(MessageType mp,const int& seq, const string& data){
     stringstream ss;
-    ss << mp << ":" << seq << ":" << data;
+    ss << mp << delimiter << seq << delimiter << data;
     return ss.str();
 }
 
