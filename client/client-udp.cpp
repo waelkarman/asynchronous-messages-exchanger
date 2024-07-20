@@ -1,6 +1,6 @@
 #include "client-udp.hpp"
 
-ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(450),ms_timeout_interval(1000),stop_condition(false){
+ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(10),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
     initialize();
     main_loop();
 }

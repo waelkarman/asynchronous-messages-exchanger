@@ -1,6 +1,6 @@
 #include "server-udp.hpp"
 
-ServerUDP::ServerUDP():sequence(0),packet_failure(0),ms_send_interval(450),ms_timeout_interval(1000),stop_condition(false),client_address_available(false){
+ServerUDP::ServerUDP():sequence(0),packet_failure(0),ms_send_interval(10),ms_timeout_interval(ms_send_interval*3),stop_condition(false),client_address_available(false){
     initialize();
     main_loop();
 }
@@ -132,7 +132,7 @@ void ServerUDP::message_handler_loop(){
 
 void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
     while (!client_address_available){
-        this_thread::sleep_for(chrono::milliseconds(500));
+        this_thread::sleep_for(chrono::milliseconds(ms_timeout_interval*2));
     }
     string pack;
     string data;
