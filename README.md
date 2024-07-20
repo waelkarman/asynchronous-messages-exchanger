@@ -45,6 +45,5 @@ mkdir build; cd build; cmake ..; make ; ./< executable name >
 ###### Improvements : 
 - Manage message_processed and sequence rollover.
 - Solve terminate called after throwing an instance of 'std::system_error'; what():  Resource temporarily unavailable
-- Solve connection alive even if one side has crashed
 - Check whether the sendto function should be synchronized
 - Investigate MEME% increasement
