@@ -247,7 +247,7 @@ void ClientUDP::received_message_loop(){
             });
         }
         
-        if(messages_to_print.find(message_processed)){
+        while(messages_to_print.find(message_processed)){
             ordered_window[static_cast<int>(message_processed % size)] = messages_to_print.get(message_processed);
             messages_to_print.erase(message_processed);       
 
