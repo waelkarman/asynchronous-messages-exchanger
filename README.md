@@ -46,4 +46,4 @@ mkdir build; cd build; cmake ..; make ; ./< executable name >
 - Manage message_processed and sequence rollover.
 - Solve terminate called after throwing an instance of 'std::system_error'; what():  Resource temporarily unavailable
 - Check whether the sendto function should be synchronized, create a synchronized wrapper.
-- Investigate MEM% increasement
+- Investigate MEM% increasement in htop filtering by udp.
