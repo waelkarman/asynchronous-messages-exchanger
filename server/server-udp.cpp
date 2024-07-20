@@ -272,7 +272,7 @@ void ServerUDP::received_message_loop(){
 }
 
 /**
- *  The following code launched thread for each available task and worker
+ *  The following code is assigned to each task. It fetches an available task and executes it.
  * 
  */
 
