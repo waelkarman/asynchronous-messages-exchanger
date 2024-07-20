@@ -27,6 +27,7 @@ public:
     }
 
 	bool find(const K& key){
+        lock_guard<mutex> lock(m_mutex);
 		if(m_map.find(key) != m_map.end()){
 			return true;
 		}else{
