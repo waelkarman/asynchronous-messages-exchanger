@@ -1,4 +1,4 @@
-# Asynchronous Client-Server communication over UDP [deferred]
+# Asynchronous Client-Server communication [deferred]
 
 - C++/20
 - CMake
