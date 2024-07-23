@@ -3,7 +3,6 @@
 - C++/20
 - CMake
 - Docker
-- Socket UDP
 
 # Add Docker's official GPG key:
 Install Docker https://docs.docker.com/engine/install/debian/
