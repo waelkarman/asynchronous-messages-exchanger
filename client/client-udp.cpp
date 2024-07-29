@@ -56,8 +56,8 @@ void ClientUDP::main_loop(){
     function<void()> task_connection_status_monitor = [this]() {
         this->connection_status_monitor();
     };
-    function<void()> task_threadJoiner = [this]() {
-        this->threadJoiner();
+    function<void()> task_threadWiper = [this]() {
+        this->threadWiper();
     };
 
     tasks.push_back(move(task_message_handler_loop));
@@ -65,7 +65,7 @@ void ClientUDP::main_loop(){
     tasks.push_back(move(task_acknoledge_handling_loop));
     tasks.push_back(move(task_received_message_loop));
     tasks.push_back(move(task_connection_status_monitor));
-    tasks.push_back(move(task_threadJoiner));
+    tasks.push_back(move(task_threadWiper));
 
     while(tasks.size()>0){
         workers.push_back(thread([this](TSVector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
@@ -77,7 +77,7 @@ void ClientUDP::main_loop(){
  * 
  */
 
-void ClientUDP::threadJoiner(){
+void ClientUDP::threadWiper(){
     while(true){
         for (auto it = t_workers.begin(); it != t_workers.end(); ) {
             if (it->joinable()) {
