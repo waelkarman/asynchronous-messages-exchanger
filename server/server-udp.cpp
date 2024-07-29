@@ -84,15 +84,17 @@ void ServerUDP::main_loop(){
 
 void ServerUDP::threadWiper(){
     while(true){
-        for (auto it = t_workers.begin(); it != t_workers.end(); ) {
-            if (it->joinable()) {
-                it->join();
-                t_workers.erase(it);
-            } else {
-                ++it;
+        if(t_workers.size() > 0){
+            for (auto it = t_workers.begin(); it != t_workers.end(); ) {
+                if (it->joinable()) {
+                    it->join();
+                    t_workers.erase(it);
+                } else {
+                    ++it;
+                }
             }
         }
-        this_thread::sleep_for(chrono::milliseconds(3000));
+        this_thread::sleep_for(chrono::milliseconds(ms_timeout_interval*10));
     }
 }
 
