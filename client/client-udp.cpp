@@ -56,7 +56,7 @@ void ClientUDP::main_loop(){
     function<void()> task_connection_status_monitor = [this]() {
         this->connection_status_monitor();
     };
-        function<void()> task_threadJoiner = [this]() {
+    function<void()> task_threadJoiner = [this]() {
         this->threadJoiner();
     };
 

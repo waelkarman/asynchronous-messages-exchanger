@@ -13,6 +13,7 @@
 
 #include "datapacket.hpp"
 #include "safedequeue.hpp"
+#include "safevector.hpp"
 #include "safemap.hpp"
 #include "utils.hpp"
 #include "create_socket_exception.hpp"
@@ -55,8 +56,10 @@ private:
     TSMap<int,string> messages_to_print;
     TSDeQueue<int> recv_ack_queue;
     TSDeQueue<string> messages_to_send;
-    vector<thread> workers;
-    vector<function<void()>> tasks;
+    TSVector<thread> workers;
+    TSVector<thread> t_workers;
+    TSVector<function<void()>> tasks;
+    TSVector<function<void()>> t_tasks;
     mutex task_queue_mutex;
     MessageType TYPE_MSG = MSG;
     MessageType TYPE_ACK = ACK;
@@ -77,7 +80,8 @@ private:
     void fetch_and_send_loop(const int& ms_send_interval);
     void acknoledge_handling_loop();
     void received_message_loop();
-    void task_launcher(vector<function<void()>> & tasks);
+    void task_launcher(TSVector<function<void()>> & t);
+    void threadJoiner();
 };
 
 
