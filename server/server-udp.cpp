@@ -205,7 +205,7 @@ void ServerUDP::fetch_and_send_loop(const int& ms_send_interval){
 
             }
         }));
-        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->task_launcher(t_tasks);},ref(t_tasks)));
+        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->t_task_launcher(t_tasks);},ref(t_tasks)));
 
   
         sequence++;
@@ -310,6 +310,23 @@ void ServerUDP::task_launcher(TSVector<function<void()>> & t){
             }
             f = tasks.back();
             tasks.pop_back();
+            //cout << "A New thread is loaded with a new task." << endl;
+        }
+        f();
+    }
+}
+
+void ServerUDP::t_task_launcher(TSVector<function<void()>> & t){
+    while(!t_tasks.empty()){
+        function<void()> f;
+        {
+            lock_guard<mutex> lock(task_queue_mutex);
+            
+            if (t_tasks.empty()){
+                return;
+            }
+            f = t_tasks.back();
+            t_tasks.pop_back();
             //cout << "A New thread is loaded with a new task." << endl;
         }
         f();

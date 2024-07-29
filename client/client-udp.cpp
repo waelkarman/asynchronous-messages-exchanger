@@ -162,10 +162,6 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
             cout << "Sending: "<< data << " with   ack --> " << sequence << endl;
             pack = dp.pack(TYPE_MSG,sequence,data);
         }
-
-        if(sequence == 32000){
-            this_thread::sleep_for(chrono::seconds(10));
-        }
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
         if (n < 0) {
@@ -199,7 +195,7 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
 
             }
         }));
-        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->task_launcher(t_tasks);},ref(t_tasks)));
+        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->t_task_launcher(t_tasks);},ref(t_tasks)));
 
   
         sequence++;
@@ -304,6 +300,23 @@ void ClientUDP::task_launcher(TSVector<function<void()>> & t){
             }
             f = tasks.back();
             tasks.pop_back();
+            //cout << "A New thread is loaded with a new task." << endl;
+        }
+        f();
+    }
+}
+
+void ClientUDP::t_task_launcher(TSVector<function<void()>> & t){
+    while(!t_tasks.empty()){
+        function<void()> f;
+        {
+            lock_guard<mutex> lock(task_queue_mutex);
+            
+            if (t_tasks.empty()){
+                return;
+            }
+            f = t_tasks.back();
+            t_tasks.pop_back();
             //cout << "A New thread is loaded with a new task." << endl;
         }
         f();
