@@ -1,6 +1,6 @@
 #include "client-udp.hpp"
 
-ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(10),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
+ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(1),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
     initialize();
     main_loop();
 }
@@ -56,15 +56,38 @@ void ClientUDP::main_loop(){
     function<void()> task_connection_status_monitor = [this]() {
         this->connection_status_monitor();
     };
+        function<void()> task_threadJoiner = [this]() {
+        this->threadJoiner();
+    };
 
     tasks.push_back(move(task_message_handler_loop));
     tasks.push_back(move(task_fetch_and_send_loop));
     tasks.push_back(move(task_acknoledge_handling_loop));
     tasks.push_back(move(task_received_message_loop));
     tasks.push_back(move(task_connection_status_monitor));
+    tasks.push_back(move(task_threadJoiner));
 
     while(tasks.size()>0){
-        workers.push_back(thread([this](vector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
+        workers.push_back(thread([this](TSVector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
+    }
+}
+
+/**
+ *  The following method check, join and delete all the ended timer threads 
+ * 
+ */
+
+void ClientUDP::threadJoiner(){
+    while(true){
+        for (auto it = t_workers.begin(); it != t_workers.end(); ) {
+            if (it->joinable()) {
+                it->join();
+                t_workers.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 }
 
@@ -139,6 +162,10 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
             cout << "Sending: "<< data << " with   ack --> " << sequence << endl;
             pack = dp.pack(TYPE_MSG,sequence,data);
         }
+
+        if(sequence == 32000){
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+        }
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
         if (n < 0) {
@@ -148,7 +175,7 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
 
         sent_messages.insert(sequence,data);
 
-        tasks.push_back(move([this](){
+        t_tasks.push_back(move([this](){
             bool stop = false;
             int retry = 0;
             while(!stop){
@@ -172,7 +199,7 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
 
             }
         }));
-        workers.push_back(thread([this](vector<function<void()>> & tasks){this->task_launcher(tasks);},ref(tasks)));
+        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->task_launcher(t_tasks);},ref(t_tasks)));
 
   
         sequence++;
@@ -266,7 +293,7 @@ void ClientUDP::received_message_loop(){
  * 
  */
 
-void ClientUDP::task_launcher(vector<function<void()>> & tasks){
+void ClientUDP::task_launcher(TSVector<function<void()>> & t){
     while(!tasks.empty()){
         function<void()> f;
         {
