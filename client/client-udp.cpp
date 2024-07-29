@@ -87,7 +87,7 @@ void ClientUDP::threadWiper(){
                 ++it;
             }
         }
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        this_thread::sleep_for(chrono::milliseconds(3000));
     }
 }
 
@@ -164,7 +164,7 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
         }
 
         if(sequence == 32000){
-            std::this_thread::sleep_for(std::chrono::seconds(10));
+            this_thread::sleep_for(chrono::seconds(10));
         }
         
         int n = sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
@@ -183,7 +183,7 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
                 
                 if(sent_messages.find(sec)){
                     retry++;
-                    std::cout << "Timeout for " << sec << " resend .. ("<<retry<<")." << endl;
+                    cout << "Timeout for " << sec << " resend .. ("<<retry<<")." << endl;
                     string pack;
                     pack = dp.pack(TYPE_MSG,sec,sent_messages.get(sec));
                     sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
@@ -192,7 +192,7 @@ void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
                 }
                 
                 if(retry > 2){
-                    std::cout << "ERROR: Packet "<<sec<<" lost."<< endl;
+                    cout << "ERROR: Packet "<<sec<<" lost."<< endl;
                     packet_failure++;
                     stop = true;
                 }
@@ -216,7 +216,7 @@ void ClientUDP::acknoledge_handling_loop(){
     while(!stop_condition){
 
         {
-            std::unique_lock<std::mutex> acknoledge_handling_loop_lock(mtx_acknoledge_handling);
+            unique_lock<mutex> acknoledge_handling_loop_lock(mtx_acknoledge_handling);
             cv_acknoledge_handling.wait(acknoledge_handling_loop_lock, [this](){ 
                 return !recv_ack_queue.empty();
             });
@@ -251,7 +251,7 @@ void ClientUDP::connection_status_monitor(){
         }else{
             cout << "Connection alive!" << endl;
         }
-        std::this_thread::sleep_for(std::chrono::seconds(10)); 
+        this_thread::sleep_for(chrono::seconds(10)); 
     }
 }
 
@@ -268,7 +268,7 @@ void ClientUDP::received_message_loop(){
     while (!stop_condition) {
         
         {
-            std::unique_lock<std::mutex> received_message_loop_lock(mtx_received_message);
+            unique_lock<mutex> received_message_loop_lock(mtx_received_message);
             cv_received_message.wait(received_message_loop_lock, [this](){ 
                 return !messages_to_print.empty();
             });
@@ -316,6 +316,6 @@ void ClientUDP::task_launcher(TSVector<function<void()>> & t){
  */
 
 int ClientUDP::timer(int s) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(ms_timeout_interval));
+    this_thread::sleep_for(chrono::milliseconds(ms_timeout_interval));
     return s;
 }

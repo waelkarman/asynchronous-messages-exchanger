@@ -65,11 +65,11 @@ private:
     MessageType TYPE_ACK = ACK;
     datapacket dp;
 
-    std::condition_variable cv_received_message;
-    std::mutex mtx_received_message;
+    condition_variable cv_received_message;
+    mutex mtx_received_message;
 
-    std::condition_variable cv_acknoledge_handling;
-    std::mutex mtx_acknoledge_handling;
+    condition_variable cv_acknoledge_handling;
+    mutex mtx_acknoledge_handling;
 
     int timer(int s);
     void connection_status_monitor();
