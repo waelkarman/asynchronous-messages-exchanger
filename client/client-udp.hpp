@@ -80,7 +80,6 @@ private:
     void acknoledge_handling_loop();
     void received_message_loop();
     void task_launcher(TSVector<function<void()>> & t);
-    void t_task_launcher(TSVector<function<void()>> & t);
     void threadWiper();
 };
 

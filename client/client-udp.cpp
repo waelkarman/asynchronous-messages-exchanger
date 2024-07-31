@@ -1,6 +1,6 @@
 #include "client-udp.hpp"
 
-ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(1000),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
+ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(1),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
     initialize();
     main_loop();
 }
@@ -197,7 +197,7 @@ void ClientUDP::fetch_and_send_loop(){
 
             }
         }));
-        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->t_task_launcher(t_tasks);},ref(t_tasks)));
+        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->task_launcher(t_tasks);},ref(t_tasks)));
 
   
         sequence++;
@@ -292,33 +292,16 @@ void ClientUDP::received_message_loop(){
  */
 
 void ClientUDP::task_launcher(TSVector<function<void()>> & t){
-    while(!tasks.empty()){
+    while(!t.empty()){
         function<void()> f;
         {
             lock_guard<mutex> lock(task_queue_mutex);
             
-            if (tasks.empty()){
+            if (t.empty()){
                 return;
             }
-            f = tasks.back();
-            tasks.pop_back();
-            //cout << "A New thread is loaded with a new task." << endl;
-        }
-        f();
-    }
-}
-
-void ClientUDP::t_task_launcher(TSVector<function<void()>> & t){
-    while(!t_tasks.empty()){
-        function<void()> f;
-        {
-            lock_guard<mutex> lock(task_queue_mutex);
-            
-            if (t_tasks.empty()){
-                return;
-            }
-            f = t_tasks.back();
-            t_tasks.pop_back();
+            f = t.back();
+            t.pop_back();
             //cout << "A New thread is loaded with a new task." << endl;
         }
         f();
