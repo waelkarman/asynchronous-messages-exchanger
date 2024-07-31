@@ -77,7 +77,7 @@ private:
     void main_loop();
     void deinitialize();
     void message_handler_loop();
-    void fetch_and_send_loop(const int& ms_send_interval);
+    void fetch_and_send_loop();
     void acknoledge_handling_loop();
     void received_message_loop();
     void task_launcher(TSVector<function<void()>> & t);

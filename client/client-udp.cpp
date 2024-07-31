@@ -1,6 +1,6 @@
 #include "client-udp.hpp"
 
-ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(1),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
+ClientUDP::ClientUDP():sequence(0),packet_failure(0),ms_send_interval(1000),ms_timeout_interval(ms_send_interval*3),stop_condition(false){
     initialize();
     main_loop();
 }
@@ -45,7 +45,7 @@ void ClientUDP::main_loop(){
         this->message_handler_loop();
     };
     function<void()> task_fetch_and_send_loop = [this](){
-        this->fetch_and_send_loop(this->ms_send_interval);
+        this->fetch_and_send_loop();
     };
     function<void()> task_acknoledge_handling_loop = [this]() {
         this->acknoledge_handling_loop();
@@ -148,7 +148,7 @@ void ClientUDP::message_handler_loop(){
  * 
  */
 
-void ClientUDP::fetch_and_send_loop(const int& ms_send_interval){
+void ClientUDP::fetch_and_send_loop(){
     string pack;
     string data;
     while(!stop_condition){
