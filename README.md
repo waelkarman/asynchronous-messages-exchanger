@@ -43,3 +43,4 @@ mkdir build; cd build; cmake ..; make ; ./< executable name >
 
 ###### Improvements : 
 - Manage message_processed and sequence rollover.
+- Handle exceptions.
