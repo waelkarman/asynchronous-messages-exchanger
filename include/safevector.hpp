@@ -23,9 +23,9 @@ public:
         m_vector.push_back(move(item));
     }
 
-    void erase(typename vector<T>::iterator item) {
+    vector<T>::iterator erase(typename vector<T>::iterator item) {
         lock_guard<mutex> lock(m_mutex);
-        m_vector.erase(item);
+        return m_vector.erase(item);
     }
 
     typename vector<T>::iterator begin() {

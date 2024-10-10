@@ -79,17 +79,25 @@ void ClientUDP::main_loop(){
 
 void ClientUDP::threadWiper(){
     while(true){
-        if(t_workers.size() > 0){
+
+        {
+            unique_lock<mutex> threadWiper_lock(mtx_threadWiper);
+            cv_threadWiper.wait(threadWiper_lock, [this](){ 
+                return !t_workers.empty();
+            });
+        }
+
+        {
+            lock_guard<mutex> lock(t_worker_mutex);   
             for (auto it = t_workers.begin(); it != t_workers.end(); ) {
                 if (it->joinable()) {
                     it->join();
-                    t_workers.erase(it);
+                    it = t_workers.erase(it);
                 } else {
                     ++it;
                 }
             }
         }
-        this_thread::sleep_for(chrono::milliseconds(ms_timeout_interval*10));
     }
 }
 
@@ -197,7 +205,11 @@ void ClientUDP::fetch_and_send_loop(){
 
             }
         }));
-        t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->task_launcher(t_tasks);},ref(t_tasks)));
+
+        {
+            lock_guard<mutex> lock(t_worker_mutex);
+            t_workers.push_back(thread([this](TSVector<function<void()>> & t_tasks){this->task_launcher(t_tasks);},ref(t_tasks)));
+        }
 
   
         sequence++;
@@ -306,6 +318,7 @@ void ClientUDP::task_launcher(TSVector<function<void()>> & t){
         }
         f();
     }
+    cv_threadWiper.notify_all();
 }
 
 /**
