@@ -71,6 +71,11 @@ private:
     condition_variable cv_acknoledge_handling;
     mutex mtx_acknoledge_handling;
 
+    condition_variable cv_threadWiper;
+    mutex mtx_threadWiper;
+
+    mutex t_worker_mutex;
+
     int timer(int s);
     void connection_status_monitor();
     void initialize();
