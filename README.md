@@ -4,7 +4,8 @@
 - CMake
 - Docker
 
-# Add Docker's official GPG key:
+# Install Docker
+###### Add Docker's official GPG key:
 Install Docker https://docs.docker.com/engine/install/debian/
 
 ```
@@ -14,7 +15,7 @@ sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 ```
-# Add the repository to sources.list.d:
+###### Add the repository to sources.list.d:
 
 ```
 echo \
