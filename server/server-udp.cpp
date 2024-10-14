@@ -1,6 +1,6 @@
 #include "server-udp.hpp"
 
-ServerUDP::ServerUDP():sequence(0),packet_failure(0),ms_send_interval(1),ms_timeout_interval(ms_send_interval*3),stop_condition(false),client_address_available(false){
+ServerUDP::ServerUDP():sequence(0),packet_failure(0),ms_send_interval(10),ms_timeout_interval(ms_send_interval*3),stop_condition(false),client_address_available(false){
     initialize();
     main_loop();
 }
@@ -128,7 +128,7 @@ void ServerUDP::deinitialize(){
 void ServerUDP::message_handler_loop(){
     while(!stop_condition){
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &addr_len);
-        cout << "Messagge received from -> " << inet_ntoa(client_addr.sin_addr) << " : " << ntohs(client_addr.sin_port) << endl;
+        // cout << "Messagge received from -> " << inet_ntoa(client_addr.sin_addr) << " : " << ntohs(client_addr.sin_port) << endl;
         if (n < 0) {
             close(sockfd);
             throw recv_data_exception();
@@ -141,13 +141,13 @@ void ServerUDP::message_handler_loop(){
 
         switch (stoi(pack[0])) {
             case MSG:
-                cout<<"Message type MSG."<<endl;
+                // cout<<"Message type MSG."<<endl;
                 messages_to_print.insert(stoi(pack[1]),pack[2]);
                 sendto(sockfd, dp.pack(TYPE_ACK,stoi(pack[1]),"ACK_MESSAGE").c_str(), strlen(dp.pack(TYPE_ACK,stoi(pack[1]),"ACK_MESSAGE").c_str()), 0, (const struct sockaddr *)&client_addr, addr_len);
                 cv_received_message.notify_all();
                 break;
             case ACK:
-                cout<<"Message type ACK." << endl;
+                // cout<<"Message type ACK." << endl;
                 recv_ack_queue.push(stoi(pack[1]));
                 cv_acknoledge_handling.notify_all();
                 break;
@@ -174,12 +174,12 @@ void ServerUDP::fetch_and_send_loop(){
         
         if(!messages_to_send.empty()){
             data = messages_to_send.front();
-            cout << "Sending: "<< data << " with   ack --> " << sequence << endl;
+            cout << "Sending: "<< data << " with   sequence number:" << sequence << endl;
             pack = dp.pack(TYPE_MSG,sequence,data);
             messages_to_send.pop();
         }else{
             data = "ALIVE";
-            cout << "Sending: "<< data << " with   ack --> " << sequence << endl;
+            cout << "Sending: "<< data << " with   sequence number:" << sequence << endl;
             pack = dp.pack(TYPE_MSG,sequence,data);
         }
         
@@ -199,7 +199,7 @@ void ServerUDP::fetch_and_send_loop(){
                 
                 if(sent_messages.find(sec)){
                     retry++;
-                    cout << "Timeout for " << sec << " resend .. ("<<retry<<")." << endl;
+                    cout << "Timeout for " << sec << " resend .. attempt num:("<<retry<<")." << endl;
                     string pack;
                     pack = dp.pack(TYPE_MSG,sec,sent_messages.get(sec));
                     sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&client_addr, addr_len);
@@ -222,7 +222,7 @@ void ServerUDP::fetch_and_send_loop(){
         }
 
   
-        sequence++;
+        sequence = static_cast<int>((sequence+1) % limit);
     }
 }
 
@@ -282,9 +282,8 @@ void ServerUDP::connection_status_monitor(){
  */
 
 void ServerUDP::received_message_loop(){
-    int size = 10;
     int message_processed = 0;
-    vector<string> ordered_window(size);
+    vector<string> ordered_window(ordered_window_size);
     while (!stop_condition) {
 
         {
@@ -295,15 +294,15 @@ void ServerUDP::received_message_loop(){
         }
 
         while(messages_to_print.find(message_processed)){
-            ordered_window[static_cast<int>(message_processed % size)] = messages_to_print.get(message_processed);
+            ordered_window[static_cast<int>(message_processed % ordered_window_size)] = messages_to_print.get(message_processed);
             messages_to_print.erase(message_processed);
                      
-            if(static_cast<int>(message_processed % size) == (size-1)){
+            if(static_cast<int>(message_processed % ordered_window_size) == (ordered_window_size-1)){
                 cout << "Received messages (ordered) ---------- >>";
                 for_each(ordered_window.begin(),ordered_window.end(),[](string i){cout<< i << " ";});
                 cout<<endl;
             }
-            message_processed++;
+            message_processed = static_cast<int>((message_processed+1) % limit); 
         }
     }
 }

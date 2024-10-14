@@ -43,5 +43,4 @@ mkdir build; cd build; cmake ..; make ; ./< executable name >
 <img src="docs/main-view.png">
 
 ###### Improvements : 
-- Manage message_processed and sequence rollover.
 - Handle exceptions.

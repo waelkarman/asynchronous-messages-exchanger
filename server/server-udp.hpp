@@ -49,6 +49,8 @@ private:
     bool client_address_available;
     bool stop_condition;
     int sequence;
+    int ordered_window_size = 10;
+    int limit = 210000000*ordered_window_size;
     atomic<int> packet_failure;
     int ms_send_interval;
     int ms_timeout_interval;
