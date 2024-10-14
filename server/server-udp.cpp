@@ -245,7 +245,7 @@ void ServerUDP::acknoledge_handling_loop(){
         while(!recv_ack_queue.empty()){
             if(sent_messages.find(recv_ack_queue.front())){
                 sent_messages.erase(recv_ack_queue.front());
-                cout<< "ACK " << recv_ack_queue.front() << " received, message sent successfully."<<endl;
+                // cout<< "ACK " << recv_ack_queue.front() << " received, message sent successfully."<<endl;
                 recv_ack_queue.pop();
             }else{
                 cout << "ACK duplicated, data already received: " << recv_ack_queue.front() << endl;
