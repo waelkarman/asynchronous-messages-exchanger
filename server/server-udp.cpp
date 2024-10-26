@@ -215,7 +215,7 @@ void ServerUDP::fetch_and_send_loop(){
                 
                 if(retry > 10){
                     cout << "ERROR: Packet "<<sec<<" lost."<< endl;
-                    packet_failure++;
+                    packet_failure.fetch_add(1, std::memory_order_seq_cst);
                     stop = true;
                 }
 
@@ -269,11 +269,11 @@ void ServerUDP::acknoledge_handling_loop(){
 
 void ServerUDP::connection_status_monitor(){
     while(!stop_condition){
-        if(packet_failure > 0){
+        if(packet_failure.load(std::memory_order_seq_cst) > 0){
             stop_condition = true;
             cv_received_message.notify_all();
             cv_acknoledge_handling.notify_all();
-            throw broken_pipe_exception(packet_failure);
+            throw broken_pipe_exception(packet_failure.load(std::memory_order_seq_cst));
         }else{
             cout << "Connection alive!" << endl;
         }
