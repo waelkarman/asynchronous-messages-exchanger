@@ -1,6 +1,6 @@
 #include "server-udp.hpp"
 
-ServerUDP::ServerUDP():sequence(0),packet_failure(0),ms_send_interval(10),ms_timeout_interval(ms_send_interval*3),stop_condition(false),client_address_available(false){
+ServerUDP::ServerUDP():sequence(0),packet_failure(0),ms_send_interval(1),ms_timeout_interval(ms_send_interval*3),stop_condition(false),client_address_available(false){
     initialize();
     main_loop();
 }
@@ -207,7 +207,7 @@ void ServerUDP::fetch_and_send_loop(){
                     stop = true;
                 }
                 
-                if(retry > 2){
+                if(retry > 10){
                     cout << "ERROR: Packet "<<sec<<" lost."<< endl;
                     packet_failure++;
                     stop = true;
