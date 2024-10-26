@@ -2,6 +2,8 @@
 #include <iostream>
 #include <mutex>
 #include <deque>
+#include <shared_mutex>
+#include <stdexcept>
 
 using namespace std;
 
@@ -9,43 +11,46 @@ template <typename T>
 class TSDeQueue {
 private:
     deque<T> m_queue;
-    mutex m_mutex;
+    mutable shared_mutex m_rw_mutex; 
 
 public:
     void push(const T& item) {
-        lock_guard<mutex> lock(m_mutex);
+        unique_lock<shared_mutex> lock(m_rw_mutex);
         m_queue.push_back(item);
     }
-	
-	void push_front(const T& item) {
-        lock_guard<mutex> lock(m_mutex);
+
+    void push_front(const T& item) {
+        unique_lock<shared_mutex> lock(m_rw_mutex);
         m_queue.push_front(item);
     }
 
-    bool empty() {
-        lock_guard<mutex> lock(m_mutex);
+    bool empty() const {
+        shared_lock<shared_mutex> lock(m_rw_mutex);
         return m_queue.empty();
     }
 
     void pop() {
-        lock_guard<mutex> lock(m_mutex);
+        unique_lock<shared_mutex> lock(m_rw_mutex);
+        if (m_queue.empty()) {
+            throw out_of_range("Cannot pop from an empty queue");
+        }
         m_queue.pop_front();
     }
 
-    T front() {
-        lock_guard<mutex> lock(m_mutex);
+    T front() const {
+        shared_lock<shared_mutex> lock(m_rw_mutex);
+        if (m_queue.empty()) {
+            throw out_of_range("Cannot access front of an empty queue");
+        }
         return m_queue.front();
     }
 
-    void printQueue() {
-        lock_guard<mutex> lock(m_mutex);
-        deque<T> tempQueue = m_queue;
+    void printQueue() const {
+        shared_lock<shared_mutex> lock(m_rw_mutex);
         cout << "Queue content: ";
-        while (!tempQueue.empty()) {
-            cout << tempQueue.front() << " ";
-            tempQueue.pop_front();
+        for (const auto& item : m_queue) {
+            cout << item << " ";
         }
         cout << endl;
     }
 };
-

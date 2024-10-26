@@ -2,6 +2,8 @@
 #include <iostream>
 #include <mutex>
 #include <vector>
+#include <shared_mutex>
+#include <stdexcept>
 
 using namespace std;
 
@@ -9,58 +11,63 @@ template <typename T>
 class TSVector {
 private:
     vector<T> m_vector;
-    mutex m_mutex;
+    mutable shared_mutex m_rw_mutex;
 
 public:
-
     void push_back(const T& item) {
-        lock_guard<mutex> lock(m_mutex);
+        unique_lock<shared_mutex> lock(m_rw_mutex);
         m_vector.push_back(item);
     }
 
     void push_back(T&& item) {
-        lock_guard<mutex> lock(m_mutex);
+        unique_lock<shared_mutex> lock(m_rw_mutex);
         m_vector.push_back(move(item));
     }
 
-    vector<T>::iterator erase(typename vector<T>::iterator item) {
-        lock_guard<mutex> lock(m_mutex);
+    typename vector<T>::iterator erase(typename vector<T>::iterator item) {
+        unique_lock<shared_mutex> lock(m_rw_mutex);
         return m_vector.erase(item);
     }
 
     typename vector<T>::iterator begin() {
-        lock_guard<mutex> lock(m_mutex);
         return m_vector.begin();
     }
 
     typename vector<T>::iterator end() {
-        lock_guard<mutex> lock(m_mutex);
         return m_vector.end();
     }
 
-    bool size() {
-        lock_guard<mutex> lock(m_mutex);
+    size_t size() const { 
+        shared_lock<shared_mutex> lock(m_rw_mutex);
         return m_vector.size();
     }
 
     void pop_back() {
-        lock_guard<mutex> lock(m_mutex);
+        unique_lock<shared_mutex> lock(m_rw_mutex);
+        if (m_vector.empty()) {
+            throw out_of_range("Cannot pop from an empty vector");
+        }
         m_vector.pop_back();
     }
 
     T& back() {
-        lock_guard<mutex> lock(m_mutex);
+        unique_lock<shared_mutex> lock(m_rw_mutex);
+        if (m_vector.empty()) {
+            throw out_of_range("Cannot access back of an empty vector");
+        }
         return m_vector.back();
     }
 
     const T& back() const {
-        lock_guard<mutex> lock(m_mutex);
+        shared_lock<shared_mutex> lock(m_rw_mutex);
+        if (m_vector.empty()) {
+            throw out_of_range("Cannot access back of an empty vector");
+        }
         return m_vector.back();
     }
 
-    bool empty() {
-        lock_guard<mutex> lock(m_mutex);
+    bool empty() const {
+        shared_lock<shared_mutex> lock(m_rw_mutex);
         return m_vector.empty();
     }
 };
-
