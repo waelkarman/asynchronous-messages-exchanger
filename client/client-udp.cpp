@@ -122,12 +122,18 @@ void ClientUDP::deinitialize(){
 
 void ClientUDP::message_handler_loop(){
     while(!stop_condition){
+        memset(buffer, 0, BUFFER_SIZE);
         int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
         // cout << "Messagge received from -> " << inet_ntoa(server_addr.sin_addr) << " : " << ntohs(server_addr.sin_port) << endl;
+        
         if (n < 0) {
             close(sockfd);
             throw recv_data_exception();
+        }else if (n >= BUFFER_SIZE) {
+            cerr << "message overflows the buffer." << endl;
+            continue; 
         }
+
         buffer[n] = '\0';
         string s(buffer);
         vector<string> pack = dp.unpack(s);
