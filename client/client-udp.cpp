@@ -197,7 +197,12 @@ void ClientUDP::fetch_and_send_loop(){
                     retry++;
                     cout << "Timeout for " << sec << " resend .. attempt num:("<<retry<<")." << endl;
                     string pack;
-                    pack = dp.pack(TYPE_MSG,sec,sent_messages.get(sec));
+                    try {
+                        pack = dp.pack(TYPE_MSG,sec,sent_messages.get(sec));
+                    } catch (const std::out_of_range& e) {
+                        cout << sec << " properly received."; 
+                        continue;
+                    }
                     sendto(sockfd, pack.c_str(), strlen(pack.c_str()), 0, (const struct sockaddr *)&server_addr, addr_len);
                 }else{
                     stop = true;
