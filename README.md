@@ -45,3 +45,4 @@ mkdir build; cd build; cmake ..; make ; ./< executable name >
 ###### Improvements : 
 - Handle exceptions.
 - Check and handle potential mutex poisoning issues.
+- Develop Max mode
